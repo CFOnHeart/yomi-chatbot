@@ -15,11 +15,18 @@ def get_azure_openai_model():
         os.environ["OPENAI_API_TYPE"] = "azure_ad"
 
         token = credential.get_token("https://cognitiveservices.azure.com/.default").token
-        os.environ["AZURE_OPENAI_API_KEY"] = token
-
-    llm = AzureChatOpenAI(
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-        azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
-        openai_api_version=os.environ["AZURE_OPENAI_API_VERSION"],
-    )
-    return llm
+        
+        llm = AzureChatOpenAI(
+            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+            azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
+            openai_api_version=os.environ["AZURE_OPENAI_API_VERSION"],
+            azure_ad_token = token
+        )
+        return llm
+    else:
+        llm = AzureChatOpenAI(
+            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+            azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
+            openai_api_version=os.environ["AZURE_OPENAI_API_VERSION"],
+        )
+        return llm

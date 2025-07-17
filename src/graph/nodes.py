@@ -1,9 +1,10 @@
 from langchain_core.messages import HumanMessage, AIMessage
-from src.graph.state import AgentState, ToolExecutionResult
+from src.graph.state import AgentState, ToolExecutionResult, RAGSearchResult
 from src.memory.smart_memory_manager import SmartMemoryManager
 from src.tools.tool_manager import ToolConfirmationSystem
 from src.model.azure_openai_model import get_azure_openai_model
 from src.database.chat_db import ChatDatabase
+from src.rag.rag_system import RAGSystem
 
 class AgentNodes:
     """Agent工作流节点"""
@@ -13,6 +14,7 @@ class AgentNodes:
         self.memory_manager = SmartMemoryManager(self.db)
         self.tool_system = ToolConfirmationSystem()
         self.llm = get_azure_openai_model()
+        self.rag_system = RAGSystem()
     
     def initialize_session_node(self, state: AgentState) -> AgentState:
         """初始化会话节点"""
@@ -129,12 +131,27 @@ class AgentNodes:
     def llm_response_node(self, state: AgentState) -> AgentState:
         """LLM响应节点"""
         session_id = state["session_id"]
-        messages = state["messages"]
+        messages = state["messages"].copy()
         
         try:
+            # 检查是否有RAG上下文
+            rag_result = state.get("rag_search_result")
+            if rag_result and rag_result.has_relevant_docs:
+                # 将RAG上下文添加到消息中
+                context_message = HumanMessage(content=rag_result.context_for_llm)
+                messages.insert(-1, context_message)  # 在最后一条用户消息之前插入
+                
+                print(f"📖 使用RAG上下文生成响应")
+            else:
+                print(f"🤖 直接使用LLM生成响应")
+            
             # 获取LLM响应
             response = self.llm.invoke(messages)
             ai_response = response.content
+            
+            # 如果使用了RAG，添加引用信息
+            if rag_result and rag_result.has_relevant_docs:
+                ai_response += rag_result.source_references
             
             # 保存AI响应
             self.memory_manager.add_ai_message(session_id, ai_response)
@@ -169,6 +186,65 @@ class AgentNodes:
             print(f"   • 需要摘要: {'是' if session_info['needs_summary'] else '否'}")
         
         print(f"\n🎯 最终响应: {state['final_response']}")
+        
+        return state
+    
+    def rag_search_node(self, state: AgentState) -> AgentState:
+        """RAG搜索节点"""
+        user_input = state["user_input"]
+        session_id = state["session_id"]
+        
+        print(f"🔍 正在搜索相关文档...")
+        
+        try:
+            # 搜索相关文档
+            documents = self.rag_system.search_relevant_documents(
+                query=user_input,
+                top_k=5,
+                session_id=session_id
+            )
+            
+            # 生成LLM上下文
+            context_for_llm = self.rag_system.format_context_for_llm(documents)
+            
+            # 生成引用信息
+            source_references = self.rag_system.format_source_references(documents)
+            
+            # 创建RAG搜索结果
+            rag_result = RAGSearchResult(
+                has_relevant_docs=len(documents) > 0,
+                documents=documents,
+                context_for_llm=context_for_llm,
+                source_references=source_references,
+                search_query=user_input
+            )
+            
+            state["rag_search_result"] = rag_result
+            
+            if documents:
+                print(f"📚 找到 {len(documents)} 个相关文档")
+                for i, doc in enumerate(documents, 1):
+                    print(f"   {i}. {doc.title} (相似度: {doc.similarity_score:.2f})")
+                    if doc.file_path:
+                        print(f"      📁 {doc.file_path}")
+                    if doc.start_line > 0:
+                        print(f"      📍 第 {doc.start_line}-{doc.end_line} 行")
+            else:
+                print(f"📝 未找到相关文档，将直接使用LLM回答")
+            
+        except Exception as e:
+            error_msg = f"RAG搜索失败: {str(e)}"
+            print(f"❌ {error_msg}")
+            state["error_message"] = error_msg
+            
+            # 设置空的RAG结果
+            state["rag_search_result"] = RAGSearchResult(
+                has_relevant_docs=False,
+                documents=[],
+                context_for_llm="",
+                source_references="",
+                search_query=user_input
+            )
         
         return state
     

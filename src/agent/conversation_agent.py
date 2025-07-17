@@ -28,6 +28,7 @@ class ConversationAgent:
         workflow.add_node("save_user_input", self.nodes.save_user_input_node)
         workflow.add_node("tool_detection", self.nodes.tool_detection_node)
         workflow.add_node("tool_execution", self.nodes.tool_execution_node)
+        workflow.add_node("rag_search", self.nodes.rag_search_node)
         workflow.add_node("llm_response", self.nodes.llm_response_node)
         workflow.add_node("finalize_response", self.nodes.finalize_response_node)
         workflow.add_node("error_handling", self.nodes.error_handling_node)
@@ -45,7 +46,7 @@ class ConversationAgent:
             self._should_use_tool,
             {
                 "use_tool": "tool_execution",
-                "use_llm": "llm_response"
+                "rag_search": "rag_search"
             }
         )
         
@@ -55,9 +56,12 @@ class ConversationAgent:
             self._tool_execution_result,
             {
                 "success": "finalize_response",
-                "failed": "llm_response"
+                "failed": "rag_search"
             }
         )
+        
+        # RAG搜索后直接到LLM响应
+        workflow.add_edge("rag_search", "llm_response")
         
         # LLM响应后的路由
         workflow.add_edge("llm_response", "finalize_response")
@@ -80,7 +84,7 @@ class ConversationAgent:
         if state.get("needs_tool", False):
             return "use_tool"
         else:
-            return "use_llm"
+            return "rag_search"
     
     def _tool_execution_result(self, state: AgentState) -> str:
         """判断工具执行结果"""
@@ -105,6 +109,7 @@ class ConversationAgent:
             "needs_tool": False,
             "tool_detection_result": None,
             "tool_execution_result": None,
+            "rag_search_result": None,
             "final_response": "",
             "step_count": 0,
             "error_message": None
@@ -138,6 +143,26 @@ class ConversationAgent:
     def delete_session(self, session_id: str) -> bool:
         """删除会话"""
         return self.nodes.db.delete_session(session_id)
+    
+    def add_document(self, title: str, content: str, file_path: str = None, **metadata) -> str:
+        """添加文档到RAG系统"""
+        return self.nodes.rag_system.add_document(title, content, file_path, **metadata)
+    
+    def add_document_from_file(self, file_path: str, **metadata) -> str:
+        """从文件添加文档到RAG系统"""
+        return self.nodes.rag_system.add_document_from_file(file_path, **metadata)
+    
+    def get_document_stats(self) -> Dict[str, Any]:
+        """获取文档统计信息"""
+        return self.nodes.rag_system.get_document_stats()
+    
+    def search_documents(self, query: str, top_k: int = 5) -> list:
+        """搜索文档"""
+        return self.nodes.rag_system.search_relevant_documents(query, top_k)
+    
+    def delete_document(self, doc_id: str) -> bool:
+        """删除文档"""
+        return self.nodes.rag_system.delete_document(doc_id)
 
 # 创建全局Agent实例
 conversation_agent = ConversationAgent()

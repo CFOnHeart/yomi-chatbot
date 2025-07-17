@@ -11,6 +11,15 @@ class ToolExecutionResult:
     result: str
     confidence: float
 
+@dataclass
+class RAGSearchResult:
+    """RAG搜索结果"""
+    has_relevant_docs: bool
+    documents: List[Any]  # DocumentSearchResult的列表
+    context_for_llm: str
+    source_references: str
+    search_query: str
+
 class AgentState(TypedDict):
     """Agent状态定义"""
     # 核心状态
@@ -22,6 +31,9 @@ class AgentState(TypedDict):
     needs_tool: bool
     tool_detection_result: Optional[Dict[str, Any]]
     tool_execution_result: Optional[ToolExecutionResult]
+    
+    # RAG相关
+    rag_search_result: Optional[RAGSearchResult]
     
     # 最终响应
     final_response: str

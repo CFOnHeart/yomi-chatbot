@@ -1,5 +1,5 @@
 """
-快速启动脚本 - 测试LangGraph Agent系统
+快速启动脚本 - 测试LangGraph Agent系统 (包含RAG功能)
 """
 
 import os
@@ -35,6 +35,27 @@ def test_basic_functionality():
         
     except Exception as e:
         print(f"❌ 数据库测试失败: {e}")
+        return False
+    
+    try:
+        # 测试RAG系统
+        from src.rag.rag_system import RAGSystem
+        rag = RAGSystem()
+        
+        #添加测试文档
+        doc_id = rag.add_document(
+            title="测试文档",
+            content="这是一个测试文档，用于验证RAG功能。",
+            category="test"
+        )
+
+        # 搜索文档
+        results = rag.search_relevant_documents("测试", top_k=1)
+        assert len(results) > 0
+        print("✅ RAG系统测试通过")
+        
+    except Exception as e:
+        print(f"❌ RAG系统测试失败: {e}")
         return False
     
     try:
@@ -119,18 +140,155 @@ def main():
     print("\n✅ 所有测试通过！")
     print("=" * 50)
     
-    # 询问是否启动交互式对话
-    user_input = input("\n是否启动交互式对话? (y/n): ").strip().lower()
+    # 询问用户想要做什么
+    print("\n请选择操作:")
+    print("1. 启动交互式对话")
+    print("2. 演示RAG功能")
+    print("3. 退出")
     
-    if user_input in ['y', 'yes', '是']:
+    choice = input("\n请输入选择 (1-3): ").strip()
+    
+    if choice == '1':
         print("\n🎯 启动交互式对话...")
         try:
             from src.tests.agent.run_langgraph_conversation_agent import main as run_agent
             run_agent()
         except Exception as e:
             print(f"❌ 启动对话失败: {e}")
+    
+    elif choice == '2':
+        print("\n📚 演示RAG功能...")
+        demo_rag_functionality()
+    
     else:
         print("\n👋 再见！")
+
+def demo_rag_functionality():
+    """演示RAG功能"""
+    print("🔍 RAG功能演示开始...")
+    print("=" * 40)
+    
+    try:
+        from src.agent.conversation_agent import create_agent
+        
+        # 创建Agent
+        agent = create_agent()
+        
+        # 添加示例文档
+        print("\n1. 添加示例文档...")
+        
+        # 添加Python相关文档
+        doc_id1 = agent.add_document(
+            title="Python基础语法",
+            content="""
+            Python是一种高级编程语言，具有简洁的语法和强大的功能。
+            
+            基本数据类型：
+            - 整数 (int): 1, 2, 3
+            - 浮点数 (float): 1.5, 2.7
+            - 字符串 (str): "hello", 'world'
+            - 布尔值 (bool): True, False
+            
+            变量赋值：
+            name = "张三"
+            age = 25
+            is_student = True
+            
+            函数定义：
+            def greet(name):
+                return f"你好, {name}!"
+            
+            条件语句：
+            if age >= 18:
+                print("成年人")
+            else:
+                print("未成年人")
+            """,
+            category="programming",
+            tags="python,basic,syntax",
+            author="Python教程"
+        )
+        
+        # 添加项目相关文档
+        doc_id2 = agent.add_document(
+            title="项目使用说明",
+            content="""
+            本项目是一个基于LangGraph的智能对话系统，集成了RAG功能。
+            
+            主要功能：
+            1. 智能对话：支持多轮对话和上下文理解
+            2. 工具调用：可以调用各种工具来执行任务
+            3. RAG检索：能够从文档库中检索相关信息
+            4. 记忆管理：自动管理对话历史和摘要
+            
+            使用方法：
+            1. 运行 python quick_start.py 进行快速测试
+            2. 使用 python rag_manager.py 管理文档
+            3. 运行 python test_rag.py 测试RAG功能
+            
+            配置要求：
+            - Python 3.13+
+            - Azure OpenAI API密钥
+            - 必要的依赖包
+            """,
+            category="documentation",
+            tags="project,usage,guide",
+            author="项目团队"
+        )
+        
+        print(f"✅ 添加文档1: {doc_id1[:8]}...")
+        print(f"✅ 添加文档2: {doc_id2[:8]}...")
+        
+        # 演示搜索功能
+        print("\n2. 测试文档搜索...")
+        
+        search_queries = [
+            "Python函数怎么定义？",
+            "如何使用这个项目？",
+            "项目有哪些功能？"
+        ]
+        
+        for query in search_queries:
+            print(f"\n🔍 搜索: '{query}'")
+            results = agent.search_documents(query, top_k=2)
+            for i, doc in enumerate(results, 1):
+                print(f"   {i}. {doc.title} (相似度: {doc.similarity_score:.2f})")
+        
+        # 演示RAG增强的对话
+        print("\n3. 测试RAG增强的对话...")
+        
+        test_questions = [
+            "Python中如何定义函数？",
+            "这个项目有什么功能？",
+            "如何运行这个项目？"
+        ]
+        
+        session_id = "demo_session"
+        
+        for i, question in enumerate(test_questions, 1):
+            print(f"\n🤔 问题{i}: {question}")
+            print("-" * 30)
+            
+            response = agent.chat(session_id, question)
+            
+            # 显示响应的前200个字符
+            print(f"🤖 回答: {response[:200]}...")
+            if len(response) > 200:
+                print("    (完整回答已截断)")
+        
+        # 显示统计信息
+        print("\n4. 文档统计信息...")
+        stats = agent.get_document_stats()
+        print(f"📊 文档数量: {stats.get('total_documents', 0)}")
+        print(f"📝 总字数: {stats.get('total_words', 0)}")
+        print(f"🏷️  分类统计: {stats.get('by_category', {})}")
+        
+        print("\n✅ RAG功能演示完成!")
+        
+    except Exception as e:
+        print(f"❌ RAG演示失败: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()
