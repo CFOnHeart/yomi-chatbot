@@ -5,12 +5,15 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 
 class ChatDatabase:
-    def __init__(self, db_path: str = "chat_history.db"):
+    def __init__(self, db_path: str = "database/chat_history.db"):
         self.db_path = db_path
         self.init_database()
     
     def init_database(self):
         """初始化数据库，创建所需的表"""
+        db_dir = Path(self.db_path).parent
+        db_dir.mkdir(parents=True, exist_ok=True)
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         

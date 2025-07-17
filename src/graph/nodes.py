@@ -130,6 +130,10 @@ class AgentNodes:
     
     def llm_response_node(self, state: AgentState) -> AgentState:
         """LLM响应节点"""
+        '''
+        todo: 直接导入文档内容到chat中，而不是通过prompt指定llm尽量使用rag document db中的内容分析答案来减少ai幻觉
+        在给出的内容上无法分析出答案的时候再根据llm自己的理解来给出答案。
+        '''
         session_id = state["session_id"]
         messages = state["messages"].copy()
         

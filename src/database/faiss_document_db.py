@@ -15,7 +15,7 @@ except ImportError:
     faiss = None
 
 class FAISSDocumentDatabase:
-    def __init__(self, db_path: str = "documents.db", vector_path: str = "vectors.index"):
+    def __init__(self, db_path: str = "database/documents.db", vector_path: str = "database/vectors.index"):
         self.db_path = db_path
         self.vector_path = vector_path
         self.metadata_path = vector_path.replace('.index', '_metadata.pkl')
@@ -26,12 +26,14 @@ class FAISSDocumentDatabase:
         self.document_ids = []  # 保存文档ID的顺序
         if not os.path.exists(self.db_path):
             print (f"⚠️ 数据库文件 {self.db_path} 不存在，初始化数据库...")
-            self.init_database()
+        self.init_database()
         self.init_faiss_index()
 
     def init_database(self):
         """初始化SQLite数据库，只存储元数据"""
         conn = sqlite3.connect(self.db_path)
+        db_dir = Path(self.db_path).parent
+        db_dir.mkdir(parents=True, exist_ok=True)
         cursor = conn.cursor()
         
         # 创建文档元数据表（不存储embedding）
