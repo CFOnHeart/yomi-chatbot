@@ -24,6 +24,18 @@ class FAISSDocumentDatabase:
         self.index = None
         self.dimension = 1536  # Azure OpenAI embedding dimension
         self.document_ids = []  # 保存文档ID的顺序
+        
+        # 定义documents表的有效列（白名单）
+        self.valid_columns = {
+            'id', 'title', 'content', 'file_path', 'file_type', 'chunk_index',
+            'start_line', 'end_line', 'word_count', 'char_count', 'language',
+            'created_at', 'updated_at', 'metadata', 'tags', 'category',
+            'priority', 'status', 'source', 'author', 'version', 'parent_id',
+            'search_keywords', 'summary', 'business_unit', 'access_level',
+            'expiry_date', 'custom_field1', 'custom_field2', 'custom_field3',
+            'faiss_index'
+        }
+        
         if not os.path.exists(self.db_path):
             print (f"⚠️ 数据库文件 {self.db_path} 不存在，初始化数据库...")
         self.init_database()
@@ -202,6 +214,22 @@ class FAISSDocumentDatabase:
         # 暂时跳过重建，等待新文档添加时再构建
         print("⚠️ 需要重新生成embeddings才能重建索引")
     
+    def _filter_valid_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """过滤出有效的数据库列参数"""
+        valid_params = {}
+        invalid_params = {}
+        
+        for key, value in params.items():
+            if key in self.valid_columns:
+                valid_params[key] = value
+            else:
+                invalid_params[key] = value
+        
+        if invalid_params:
+            print(f"⚠️ 忽略无效的列参数: {list(invalid_params.keys())}")
+        
+        return valid_params
+    
     def add_document(self, title: str, content: str, embedding: np.ndarray = None,
                     file_path: str = None, **kwargs) -> str:
         """添加文档"""
@@ -242,8 +270,9 @@ class FAISSDocumentDatabase:
             'faiss_index': faiss_index
         }
         
-        # 添加扩展字段
+        # 添加扩展字段（只保留有效的列）
         params.update(kwargs)
+        params = self._filter_valid_params(params)
         
         # 构建SQL
         columns = ', '.join(params.keys())

@@ -19,8 +19,10 @@ dependencies = [
     "numpy>=1.24.0",
     "pydantic>=2.11.7",
     "pydots>=1.1.17017",
+    "pypdf>=5.8.0",
     "pytest>=8.4.1",
     "python-dotenv>=1.1.1",
+    "reportlab>=4.4.2",
     "ruamel-yaml>=0.18.14",
     "sqlalchemy>=2.0.41",
 ]

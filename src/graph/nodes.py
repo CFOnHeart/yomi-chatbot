@@ -5,16 +5,17 @@ from src.tools.tool_manager import ToolConfirmationSystem
 from src.model.azure_openai_model import get_azure_openai_model
 from src.database.chat_db import ChatDatabase
 from src.rag.rag_system import RAGSystem
+from src.config.settings import get_llm_embeddings, get_llm_model, get_rag_system
 
 class AgentNodes:
     """Agent工作流节点"""
     
-    def __init__(self):
+    def __init__(self, llm = None, rag = None):
         self.db = ChatDatabase()
         self.memory_manager = SmartMemoryManager(self.db)
         self.tool_system = ToolConfirmationSystem()
-        self.llm = get_azure_openai_model()
-        self.rag_system = RAGSystem()
+        self.llm = llm or get_llm_model()
+        self.rag_system = rag or get_rag_system()
     
     def initialize_session_node(self, state: AgentState) -> AgentState:
         """初始化会话节点"""

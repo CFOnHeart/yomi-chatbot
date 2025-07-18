@@ -10,20 +10,18 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
-# 添加项目路径
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.agent.conversation_agent import create_agent
 from src.rag.rag_system import RAGSystem
 from src.database.faiss_document_db import FAISSDocumentDatabase
+from src.config.settings import get_rag_system, get_faiss_document_db
 
 class RAGManager:
     """RAG文档管理器"""
     
-    def __init__(self):
-        self.agent = create_agent()
-        self.rag_system = RAGSystem()
-        self.doc_db = FAISSDocumentDatabase()
+    def __init__(self, rag: RAGSystem = None, document_db: FAISSDocumentDatabase = None):
+        self.rag_system = rag or get_rag_system()
+        self.doc_db = document_db or get_faiss_document_db()
     
     def add_file(self, file_path: str, title: str = None, category: str = None, 
                 tags: str = None, author: str = None) -> str:
@@ -194,83 +192,3 @@ class RAGManager:
                     
         except Exception as e:
             print(f"❌ 获取统计信息失败: {e}")
-    
-    def test_chat(self, query: str, session_id: str = "test_session"):
-        """测试聊天功能"""
-        try:
-            print(f"🤖 测试聊天: {query}")
-            print("=" * 60)
-            
-            response = self.agent.chat(session_id, query)
-            print(f"\n💬 AI回复:")
-            print(response)
-            
-        except Exception as e:
-            print(f"❌ 测试聊天失败: {e}")
-
-def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(description='RAG文档管理工具')
-    subparsers = parser.add_subparsers(dest='command', help='可用命令')
-    
-    # 添加文件命令
-    add_file_parser = subparsers.add_parser('add-file', help='添加文件')
-    add_file_parser.add_argument('file_path', help='文件路径')
-    add_file_parser.add_argument('--title', help='文档标题')
-    add_file_parser.add_argument('--category', help='文档分类')
-    add_file_parser.add_argument('--tags', help='文档标签')
-    add_file_parser.add_argument('--author', help='文档作者')
-    
-    # 添加目录命令
-    add_dir_parser = subparsers.add_parser('add-dir', help='批量添加目录')
-    add_dir_parser.add_argument('dir_path', help='目录路径')
-    add_dir_parser.add_argument('--pattern', default='*', help='文件匹配模式')
-    add_dir_parser.add_argument('--category', help='文档分类')
-    add_dir_parser.add_argument('--tags', help='文档标签')
-    
-    # 搜索命令
-    search_parser = subparsers.add_parser('search', help='搜索文档')
-    search_parser.add_argument('query', help='搜索查询')
-    search_parser.add_argument('--top-k', type=int, default=10, help='返回结果数量')
-    
-    # 列出文档命令
-    list_parser = subparsers.add_parser('list', help='列出所有文档')
-    list_parser.add_argument('--limit', type=int, default=20, help='限制结果数量')
-    
-    # 删除文档命令
-    delete_parser = subparsers.add_parser('delete', help='删除文档')
-    delete_parser.add_argument('doc_id', help='文档ID')
-    
-    # 统计命令
-    subparsers.add_parser('stats', help='显示统计信息')
-    
-    # 测试聊天命令
-    test_parser = subparsers.add_parser('test', help='测试聊天')
-    test_parser.add_argument('query', help='测试查询')
-    test_parser.add_argument('--session-id', default='test_session', help='会话ID')
-    
-    args = parser.parse_args()
-    
-    if not args.command:
-        parser.print_help()
-        return
-    
-    manager = RAGManager()
-    
-    if args.command == 'add-file':
-        manager.add_file(args.file_path, args.title, args.category, args.tags, args.author)
-    elif args.command == 'add-dir':
-        manager.add_directory(args.dir_path, args.pattern, args.category, args.tags)
-    elif args.command == 'search':
-        manager.search_documents(args.query, args.top_k)
-    elif args.command == 'list':
-        manager.list_documents(args.limit)
-    elif args.command == 'delete':
-        manager.delete_document(args.doc_id)
-    elif args.command == 'stats':
-        manager.get_stats()
-    elif args.command == 'test':
-        manager.test_chat(args.query, args.session_id)
-
-if __name__ == '__main__':
-    main()

@@ -10,7 +10,6 @@ def get_azure_openai_model():
         pass
 
     if os.environ["AZURE_OPENAI_API_KEY"] == "":
-        print ("You not set AZURE_OPENAI_API_KEY in the .env file, so we use your az login credential to get the token")
         credential = DefaultAzureCredential()
         os.environ["OPENAI_API_TYPE"] = "azure_ad"
 

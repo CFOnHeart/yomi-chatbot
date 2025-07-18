@@ -11,6 +11,8 @@ current_dir = Path(__file__).parent
 src_dir = current_dir / "src"
 sys.path.insert(0, str(src_dir))
 
+knowledge_files = [ "Files/ReAct.pdf" ]
+
 def test_basic_functionality():
     """测试基本功能"""
     print("🧪 测试基本功能...")
@@ -38,12 +40,12 @@ def test_basic_functionality():
         return False
     
     try:
-        # 测试RAG系统
-        from src.rag.rag_system import RAGSystem
-        rag = RAGSystem()
+        # 测试RAG系统 - 使用全局设置
+        from src.config.settings import get_rag_system
+        rag = get_rag_system()
         
         #添加测试文档
-        doc_id = rag.add_document(
+        doc_ids = rag.add_document(
             title="测试文档",
             content="这是一个测试文档，用于验证RAG功能。",
             category="test"
@@ -122,6 +124,37 @@ def check_environment():
     print("✅ 环境配置检查通过")
     return True
 
+def upload_files_to_rag():
+    """上传文件到RAG系统"""
+    print("📂 上传文件到RAG系统...")
+
+    try:
+        # 使用全局设置获取RAG系统
+        from src.config.settings import get_rag_system
+        rag_system = get_rag_system()
+
+        for file in knowledge_files:
+            if not Path(file).exists():
+                print(f"❌ 文件不存在: {file}")
+                continue
+
+            # 直接使用RAG系统的add_document_from_file方法
+            doc_ids = rag_system.add_document_from_file(
+                file, 
+                title=Path(file).stem,
+                category="knowledge",
+                author="系统"
+            )
+            print(f"✅ 文件已添加: {file}")
+            print(f"📄 生成文档块数: {len(doc_ids)}")
+
+        print("📚 所有文件已成功上传到RAG系统")
+
+    except Exception as e:
+        print(f"❌ 上传文件失败: {e}")
+        import traceback
+        traceback.print_exc()
+
 def main():
     """主函数"""
     print("🚀 LangGraph Agent 系统快速启动")
@@ -143,8 +176,9 @@ def main():
     # 询问用户想要做什么
     print("\n请选择操作:")
     print("1. 启动交互式对话")
-    print("2. 演示RAG功能")
-    print("3. 退出")
+    print("2. 加载RAG知识库文件")
+    print("3. 演示RAG功能")
+    print("4. 退出")
     
     choice = input("\n请输入选择 (1-3): ").strip()
     
@@ -155,8 +189,12 @@ def main():
             run_agent()
         except Exception as e:
             print(f"❌ 启动对话失败: {e}")
-    
+
     elif choice == '2':
+        print(f"\n📂 添加已有知识进入RAG数据库，我们默认使用的文件是 {knowledge_files.__str__()}")
+        upload_files_to_rag()
+
+    elif choice == '3':
         print("\n📚 演示RAG功能...")
         demo_rag_functionality()
     

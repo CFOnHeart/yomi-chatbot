@@ -2,10 +2,14 @@ import time
 import json
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple
+from pathlib import Path
 from src.database.faiss_document_db import FAISSDocumentDatabase
 from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
 from langchain_openai.embeddings import AzureOpenAIEmbeddings
 from dataclasses import dataclass
+
+from src.rag.document_loader import PdfDocumentLoader, DocumentChunk
+
 
 @dataclass
 class DocumentSearchResult:
@@ -33,6 +37,9 @@ class RAGSystem:
         self.document_db = document_db or FAISSDocumentDatabase()
         self.embeddings = embeddings or get_azure_openai_embeddings()
         self.similarity_threshold = 0.7  # 相似度阈值
+
+        # document loaders - 传递embedding配置
+        self.pdf_document_loader = PdfDocumentLoader(embeddings=self.embeddings)
         
     def search_relevant_documents(self, query: str, top_k: int = 5, 
                                 session_id: str = None) -> List[DocumentSearchResult]:
@@ -170,14 +177,61 @@ class RAGSystem:
         
         return "\n".join(references)
     
-    def add_document_from_file(self, file_path: str, **metadata) -> str:
+    def add_document_from_file(self, file_path: str, **metadata) -> List[str]:
         """从文件添加文档"""
-        from pathlib import Path
-        
         path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(f"文件不存在: {file_path}")
         
+        file_type = path.suffix.lower()
+        
+        # 处理PDF文件
+        if file_type == '.pdf':
+            return self._add_pdf_document(path, **metadata)
+        
+        # 处理其他文件类型（保持原有逻辑）
+        return self._add_regular_document(path, **metadata)
+    
+    def _add_pdf_document(self, path: Path, **metadata) -> List[str]:
+        """添加PDF文档（分块处理）"""
+        try:
+            # 使用PDF文档加载器（包含embedding生成）
+            document_chunks = self.pdf_document_loader.load_documents(path)
+            
+            doc_ids = []
+            for chunk in document_chunks:
+                # 合并元数据
+                combined_metadata = metadata.copy()
+                combined_metadata.update(chunk.metadata)
+                
+                # 创建文档标题
+                chunk_title = f"{combined_metadata.get('title', path.stem)} - 第{combined_metadata.get('page_number', 1)}页"
+                if combined_metadata.get('chunk_index', 0) > 0:
+                    chunk_title += f" - 片段{combined_metadata.get('chunk_index', 0) + 1}"
+                
+                # 从combined_metadata中移除title，避免参数冲突
+                combined_metadata.pop('title', None)
+                
+                # 直接使用chunk中的embedding添加到数据库
+                doc_id = self.document_db.add_document(
+                    title=chunk_title,
+                    content=chunk.content,
+                    embedding=chunk.embedding,
+                    file_path=str(path),
+                    **combined_metadata
+                )
+                doc_ids.append(doc_id)
+            
+            print(f"✅ 成功添加PDF文档 {path}: {len(doc_ids)} 个文档块")
+            return doc_ids
+            
+        except Exception as e:
+            print(f"⚠️ 添加PDF文档 {path} 失败: {e}")
+            # 降级到常规文档处理
+            return self._add_regular_document(path, **metadata)
+    
+    def _add_regular_document(self, path: Path, **metadata) -> List[str]:
+        """添加常规文档（单个文档）"""
         # 读取文件内容
         try:
             with open(path, 'r', encoding='utf-8') as f:
@@ -205,12 +259,17 @@ class RAGSystem:
                 'search_keywords': self._extract_keywords_from_text(content)
             })
         
-        return self.add_document(
+        # 从metadata中移除title，避免参数冲突
+        metadata.pop('title', None)
+        
+        doc_id = self.add_document(
             title=title,
             content=content,
             file_path=str(path),
             **metadata
         )
+        
+        return [doc_id]
     
     def _extract_keywords_from_code(self, code: str) -> str:
         """从代码中提取关键词"""
