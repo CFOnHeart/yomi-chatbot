@@ -1,6 +1,7 @@
 from langchain_core.messages import HumanMessage, AIMessage
 from src.graph.state import AgentState, ToolExecutionResult, RAGSearchResult
 from src.memory.smart_memory_manager import SmartMemoryManager
+from src.rag import DocumentSearchResult
 from src.tools.tool_manager import ToolConfirmationSystem
 from src.model.azure_openai_model import get_azure_openai_model
 from src.database.chat_db import ChatDatabase
@@ -131,10 +132,6 @@ class AgentNodes:
     
     def llm_response_node(self, state: AgentState) -> AgentState:
         """LLM响应节点"""
-        '''
-        todo: 直接导入文档内容到chat中，而不是通过prompt指定llm尽量使用rag document db中的内容分析答案来减少ai幻觉
-        在给出的内容上无法分析出答案的时候再根据llm自己的理解来给出答案。
-        '''
         session_id = state["session_id"]
         messages = state["messages"].copy()
         
@@ -142,11 +139,16 @@ class AgentNodes:
             # 检查是否有RAG上下文
             rag_result = state.get("rag_search_result")
             if rag_result and rag_result.has_relevant_docs:
-                # 将RAG上下文添加到消息中
-                context_message = HumanMessage(content=rag_result.context_for_llm)
-                messages.insert(-1, context_message)  # 在最后一条用户消息之前插入
+                # 构建特殊的prompt来引导LLM分析文档相关性
+                structured_prompt = self._build_structured_rag_prompt(
+                    user_question=state["user_input"],
+                    documents=rag_result.documents
+                )
                 
-                print(f"📖 使用RAG上下文生成响应")
+                # 替换最后一条用户消息为结构化prompt
+                messages[-1] = HumanMessage(content=structured_prompt)
+                
+                print(f"📖 使用结构化RAG prompt生成响应")
             else:
                 print(f"🤖 直接使用LLM生成响应")
             
@@ -154,18 +156,20 @@ class AgentNodes:
             response = self.llm.invoke(messages)
             ai_response = response.content
             
-            # 如果使用了RAG，添加引用信息
+            # 如果使用了RAG，处理结构化响应
             if rag_result and rag_result.has_relevant_docs:
-                ai_response += rag_result.source_references
+                final_response = self._process_structured_response(ai_response, rag_result.documents)
+            else:
+                final_response = ai_response
             
             # 保存AI响应
-            self.memory_manager.add_ai_message(session_id, ai_response)
+            self.memory_manager.add_ai_message(session_id, final_response)
             
             # 更新状态
-            state["messages"].append(AIMessage(content=ai_response))
-            state["final_response"] = ai_response
+            state["messages"].append(AIMessage(content=final_response))
+            state["final_response"] = final_response
             
-            print(f"🤖 LLM响应: {ai_response[:100]}...")
+            print(f"🤖 LLM响应: {final_response[:100]}...")
             
         except Exception as e:
             error_msg = f"LLM响应失败: {str(e)}"
@@ -264,3 +268,131 @@ class AgentNodes:
         state["final_response"] = f"抱歉，处理您的请求时遇到了问题: {error_msg}"
         
         return state
+    
+    def _build_structured_rag_prompt(self, user_question: str, documents: list[DocumentSearchResult]) -> str:
+        """构建结构化的RAG prompt"""
+        # 构建文档信息
+        doc_info = []
+        for i, doc in enumerate(documents, 1):
+            doc_metadata = {
+                "doc_id": doc.document_id,
+                "title": doc.title,
+                "file_path": doc.file_path or "Unknown",
+                "similarity_score": round(doc.similarity_score, 3)
+            }
+            
+            doc_info.append(f"""
+Document {i} (ID: {doc.document_id}):
+Title: {doc.title}
+Source: {doc.file_path or "Unknown"}
+Similarity Score: {doc.similarity_score:.3f}
+Content: {doc.content[:500]}{'...' if len(doc.content) > 500 else ''}
+""")
+        
+        docs_text = "\n".join(doc_info)
+        
+        prompt = f"""You are an intelligent assistant that analyzes provided documents to answer user questions. Your task is to:
+
+1. First, determine which documents are relevant to the user's question
+2. Answer based on relevant documents if available
+3. Provide a comprehensive response combining document information with your knowledge
+
+**User Question:** {user_question}
+
+**Provided Documents:**
+{docs_text}
+
+**Instructions:**
+- Carefully analyze each document's relevance to the question
+- If documents are relevant, use them as primary sources for your answer
+- Combine document information with your general knowledge for a complete response
+- Be honest about what information comes from documents vs. your knowledge
+
+**Response Format (JSON):**
+{{
+    "related_doc": ["doc_id1", "doc_id2", ...],
+    "answer_from_provided_doc": "Answer based on the related documents. Leave empty if no documents are relevant.",
+    "answer_from_llm": "Comprehensive answer combining document information and your knowledge."
+}}
+
+Please respond in valid JSON format only."""
+        
+        return prompt
+    
+    def _process_structured_response(self, llm_response: str, documents: list) -> str:
+        """处理结构化的LLM响应，转换为markdown格式"""
+        import json
+        import re
+        
+        try:
+            # 尝试解析JSON响应
+            # 先清理可能的markdown代码块
+            json_content = llm_response.strip()
+            if json_content.startswith("```json"):
+                json_content = re.sub(r'^```json\s*', '', json_content)
+                json_content = re.sub(r'\s*```$', '', json_content)
+            elif json_content.startswith("```"):
+                json_content = re.sub(r'^```\s*', '', json_content)
+                json_content = re.sub(r'\s*```$', '', json_content)
+            
+            response_data = json.loads(json_content)
+            
+            # 构建markdown响应
+            markdown_response = []
+            
+            # 主要回答
+            main_answer = response_data.get("answer_from_llm", "")
+            if main_answer:
+                markdown_response.append(main_answer)
+            
+            # 添加分隔线
+            markdown_response.append("\n---\n")
+            
+            # 添加相关文档信息
+            related_doc_ids = response_data.get("related_doc", [])
+            doc_answer = response_data.get("answer_from_provided_doc", "")
+            
+            if related_doc_ids and doc_answer:
+                markdown_response.append("### 📚 基于文档的回答")
+                markdown_response.append(doc_answer)
+                markdown_response.append("")
+            
+            if related_doc_ids:
+                markdown_response.append("### 📖 相关文档")
+                
+                # 创建文档ID到文档对象的映射
+                doc_map = {doc.document_id: doc for doc in documents}
+                
+                for doc_id in related_doc_ids:
+                    if doc_id in doc_map:
+                        doc = doc_map[doc_id]
+                        markdown_response.append(f"- **{doc.title}**")
+                        if doc.file_path:
+                            markdown_response.append(f"  - 📁 文件: `{doc.file_path}`")
+                        if hasattr(doc, 'start_line') and doc.start_line > 0:
+                            markdown_response.append(f"  - 📍 位置: 第 {doc.start_line}-{doc.end_line} 行")
+                        markdown_response.append(f"  - 🎯 相似度: {doc.similarity_score:.3f}")
+                        markdown_response.append("")
+            else:
+                markdown_response.append("### ℹ️ 文档信息")
+                markdown_response.append("未找到与问题直接相关的文档，回答主要基于AI的通用知识。")
+            
+            return "\n".join(markdown_response)
+            
+        except (json.JSONDecodeError, KeyError) as e:
+            # 如果JSON解析失败，返回原始响应
+            print(f"⚠️ 无法解析结构化响应，返回原始内容: {e}")
+            
+            # 构建基本的markdown格式
+            markdown_response = [llm_response]
+            markdown_response.append("\n---\n")
+            markdown_response.append("### 📖 相关文档")
+            
+            for i, doc in enumerate(documents, 1):
+                markdown_response.append(f"{i}. **{doc.title}**")
+                if doc.file_path:
+                    markdown_response.append(f"   - 📁 `{doc.file_path}`")
+                markdown_response.append(f"   - 🎯 相似度: {doc.similarity_score:.3f}")
+                markdown_response.append("")
+            
+            return "\n".join(markdown_response)
