@@ -7,6 +7,7 @@ from src.model.azure_openai_model import get_azure_openai_model
 from src.database.chat_db import ChatDatabase
 from src.rag.rag_system import RAGSystem
 from src.config.settings import get_llm_embeddings, get_llm_model, get_rag_system
+from src.config.prompt_manager import get_prompt_manager
 
 class AgentNodes:
     """Agent工作流节点"""
@@ -17,6 +18,7 @@ class AgentNodes:
         self.tool_system = ToolConfirmationSystem()
         self.llm = llm or get_llm_model()
         self.rag_system = rag or get_rag_system()
+        self.prompt_manager = get_prompt_manager()
     
     def initialize_session_node(self, state: AgentState) -> AgentState:
         """初始化会话节点"""
@@ -271,53 +273,7 @@ class AgentNodes:
     
     def _build_structured_rag_prompt(self, user_question: str, documents: list[DocumentSearchResult]) -> str:
         """构建结构化的RAG prompt"""
-        # 构建文档信息
-        doc_info = []
-        for i, doc in enumerate(documents, 1):
-            doc_metadata = {
-                "doc_id": doc.document_id,
-                "title": doc.title,
-                "file_path": doc.file_path or "Unknown",
-                "similarity_score": round(doc.similarity_score, 3)
-            }
-            
-            doc_info.append(f"""
-Document {i} (ID: {doc.document_id}):
-Title: {doc.title}
-Source: {doc.file_path or "Unknown"}
-Similarity Score: {doc.similarity_score:.3f}
-Content: {doc.content[:500]}{'...' if len(doc.content) > 500 else ''}
-""")
-        
-        docs_text = "\n".join(doc_info)
-        
-        prompt = f"""You are an intelligent assistant that analyzes provided documents to answer user questions. Your task is to:
-
-1. First, determine which documents are relevant to the user's question
-2. Answer based on relevant documents if available
-3. Provide a comprehensive response combining document information with your knowledge
-
-**User Question:** {user_question}
-
-**Provided Documents:**
-{docs_text}
-
-**Instructions:**
-- Carefully analyze each document's relevance to the question
-- If documents are relevant, use them as primary sources for your answer
-- Combine document information with your general knowledge for a complete response
-- Be honest about what information comes from documents vs. your knowledge
-
-**Response Format (JSON):**
-{{
-    "related_doc": ["doc_id1", "doc_id2", ...],
-    "answer_from_provided_doc": "Answer based on the related documents. Leave empty if no documents are relevant.",
-    "answer_from_llm": "Comprehensive answer combining document information and your knowledge."
-}}
-
-Please respond in valid JSON format only."""
-        
-        return prompt
+        return self.prompt_manager.get_structured_rag_prompt(user_question, documents)
     
     def _process_structured_response(self, llm_response: str, documents: list) -> str:
         """处理结构化的LLM响应，转换为markdown格式"""

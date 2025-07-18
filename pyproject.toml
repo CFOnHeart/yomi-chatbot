@@ -10,6 +10,7 @@ dependencies = [
     "google-api-python-client>=2.175.0",
     "graphviz>=0.21",
     "ipython>=9.4.0",
+    "jinja2>=3.1.6",
     "langchain-community>=0.3.27",
     "langchain-tavily>=0.2.6",
     "langchain[openai]>=0.3.26",

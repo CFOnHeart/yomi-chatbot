@@ -1,0 +1,43 @@
+structured_rag_prompt: |-
+  You are an intelligent assistant that analyzes provided documents to answer user questions. Your task is to:
+
+  1. First, determine which documents are relevant to the user's question
+  2. Answer based on relevant documents if available
+  3. Provide a comprehensive response combining document information with your knowledge
+
+  **User Question:** {{ user_question }}
+
+  **Provided Documents:**
+  {% for doc in documents %}
+  Document {{ loop.index }} (ID: {{ doc.document_id }}):
+  Title: {{ doc.title }}
+  Source: {{ doc.file_path or "Unknown" }}
+  Similarity Score: {{ "%.3f"|format(doc.similarity_score) }}
+  Content: {{ doc.content[:500] }}{% if doc.content|length > 500 %}...{% endif %}
+
+  {% endfor %}
+
+  **Instructions:**
+  - Carefully analyze each document's relevance to the question
+  - If documents are relevant, use them as primary sources for your answer
+  - Combine document information with your general knowledge for a complete response
+  - Be honest about what information comes from documents vs. your knowledge
+
+  **Response Format (JSON):**
+  {
+      "related_doc": ["doc_id1", "doc_id2", ...],
+      "answer_from_provided_doc": "Answer based on the related documents. Leave empty if no documents are relevant.",
+      "answer_from_llm": "Comprehensive answer combining document information and your knowledge."
+  }
+
+  Please respond in valid JSON format only.
+
+error_response_prompt: |-
+  I apologize, but I encountered an error while processing your request: {{ error_message }}
+  
+  Please try rephrasing your question or contact support if the issue persists.
+
+fallback_response_prompt: |-
+  I'm sorry, but I couldn't find any relevant documents to answer your question about: "{{ user_question }}"
+  
+  However, I can provide a general response based on my knowledge. Please let me know if you'd like me to help in a different way.
