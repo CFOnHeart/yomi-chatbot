@@ -1,5 +1,5 @@
 """
-快速启动脚本 - 测试LangGraph Agent系统 (包含RAG功能)
+快速启动脚本 - 测试LangGraph Agent系统 (包含RAG功能和Multi-Agent系统)
 """
 
 import os
@@ -12,6 +12,47 @@ src_dir = current_dir / "src"
 sys.path.insert(0, str(src_dir))
 
 knowledge_files = [ "Files/ReAct.pdf" ]
+
+def test_multi_agent_system():
+    """测试Multi-Agent系统"""
+    print("🤖 测试Multi-Agent系统...")
+    
+    try:
+        from src.config.multi_agent_config import get_multi_agent_system
+        
+        # 获取multi-agent系统
+        system = get_multi_agent_system()
+        
+        print("✅ Multi-Agent系统创建成功!")
+        
+        # 列出所有Agent
+        agents = system.list_agents()
+        print(f"📋 已注册的Agent ({len(agents)}个):")
+        for agent in agents:
+            print(f"  - {agent['name']}: {agent['description'][:50]}...")
+        
+        # 测试查询
+        test_queries = [
+            "你好，请介绍一下自己",
+            "帮我搜索文档",
+            "有什么工具可以使用？"
+        ]
+        
+        for i, query in enumerate(test_queries, 1):
+            print(f"\n🎯 测试 {i}: {query}")
+            try:
+                result = system.invoke(query, session_id=f"test_session_{i}")
+                print(f"✅ 结果: {result[:100]}...")
+            except Exception as e:
+                print(f"❌ 错误: {str(e)}")
+        
+        return system
+        
+    except Exception as e:
+        print(f"❌ Multi-Agent系统测试失败: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 def test_basic_functionality():
     """测试基本功能"""
@@ -170,17 +211,24 @@ def main():
         print("\n❌ 基本功能测试失败")
         return
     
+    # 测试Multi-Agent系统
+    multi_agent_system = test_multi_agent_system()
+    if not multi_agent_system:
+        print("\n❌ Multi-Agent系统测试失败")
+        return
+    
     print("\n✅ 所有测试通过！")
     print("=" * 50)
     
     # 询问用户想要做什么
     print("\n请选择操作:")
-    print("1. 启动交互式对话")
-    print("2. 加载RAG知识库文件")
-    print("3. 演示RAG功能")
-    print("4. 退出")
+    print("1. 启动交互式对话 (传统单Agent)")
+    print("2. 启动Multi-Agent对话")
+    print("3. 加载RAG知识库文件")
+    print("4. 演示RAG功能")
+    print("5. 退出")
     
-    choice = input("\n请输入选择 (1-3): ").strip()
+    choice = input("\n请输入选择 (1-5): ").strip()
     
     if choice == '1':
         print("\n🎯 启动交互式对话...")
@@ -191,15 +239,56 @@ def main():
             print(f"❌ 启动对话失败: {e}")
 
     elif choice == '2':
+        print("\n🤖 启动Multi-Agent对话...")
+        try:
+            interactive_multi_agent_chat(multi_agent_system)
+        except Exception as e:
+            print(f"❌ 启动Multi-Agent对话失败: {e}")
+
+    elif choice == '3':
         print(f"\n📂 添加已有知识进入RAG数据库，我们默认使用的文件是 {knowledge_files.__str__()}")
         upload_files_to_rag()
 
-    elif choice == '3':
+    elif choice == '4':
         print("\n📚 演示RAG功能...")
         demo_rag_functionality()
     
     else:
         print("\n👋 再见！")
+
+def interactive_multi_agent_chat(system):
+    """交互式Multi-Agent对话"""
+    print("\n" + "="*60)
+    print("🎮 Multi-Agent系统交互式对话")
+    print("="*60)
+    print("💬 输入您的问题，输入 'quit' 退出")
+    
+    session_id = "interactive_session"
+    
+    while True:
+        try:
+            user_input = input("\n👤 您: ").strip()
+            
+            if user_input.lower() in ['quit', 'exit', '退出']:
+                print("👋 再见!")
+                break
+            
+            if not user_input:
+                continue
+            
+            print(f"\n🤖 Multi-Agent系统正在处理...")
+            
+            # 调用Multi-Agent系统
+            result = system.invoke(user_input, session_id=session_id)
+            
+            print(f"\n🎯 系统回答:")
+            print(result)
+            
+        except KeyboardInterrupt:
+            print("\n👋 用户中断，再见!")
+            break
+        except Exception as e:
+            print(f"\n❌ 处理请求时发生错误: {str(e)}")
 
 def demo_rag_functionality():
     """演示RAG功能"""

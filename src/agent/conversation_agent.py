@@ -1,4 +1,7 @@
-'''
+"""
+基于LangGraph的对话Agent，继承自AbstractManagedAgent。
+支持multi-agent系统的协作。
+
 features:
 1. 用户的历史聊天记录需要存入数据库中，请你帮我定义该数据库需要用到的schema，数据库用本地的sqlite实现即可
 2. 在一个用户聊天启动会话前，检查该会话id是否在数据库中留有记录，如果有，将该会话记录保存到当前缓存当中
@@ -6,16 +9,22 @@ features:
 4. lang graph还需要支持调用tool 的几点
 5. agent 开始对话之前，先要初始化chat history，通过传入会话的id， 来确定数据库中是否存在历史记录需要加载
 6. agent的每一轮对话，收到user的input，工作流程应该是，将用户的输入存入数据库，是否有工具可以匹配该问题，如果有，控制台展示该工具的schema，弹出一个提示让用户是否确定调用该工具。如果调用工具，就直接通过工具给出结果，并将结果存入数据库。如果不调用工具，就直接将问题交给大模型回答，最后将结果存入数据库。一轮结束后，agent会异步检查聊天记录是否超过文字3200的限制，如果有，summarize一下并保存在缓存中
-'''
-from typing import Dict, Any
+"""
+from typing import Dict, Any, Optional
 from langgraph.graph import StateGraph, END
 from src.graph.state import AgentState
 from src.graph.nodes import AgentNodes
+from src.agent.base_agent import AbstractManagedAgent
 
-class ConversationAgent:
+class ConversationAgent(AbstractManagedAgent):
     """基于LangGraph的对话Agent"""
     
     def __init__(self):
+        # 调用父类构造函数，设置Agent的描述
+        super().__init__(
+            description="专门处理用户对话的Agent，具备RAG文档检索、工具调用、历史记录管理等功能。"
+                       "适合处理一般的问答、文档查询、工具调用等任务。"
+        )
         self.nodes = AgentNodes()
         self.workflow = self._create_workflow()
     
@@ -98,6 +107,30 @@ class ConversationAgent:
             return "success"
         else:
             return "failed"
+    
+    def invoke(self, query: str, context: Optional[Dict[str, Any]] = None) -> Any:
+        """
+        实现AbstractManagedAgent的invoke方法。
+        
+        Args:
+            query (str): 用户输入的问题
+            context (Optional[Dict[str, Any]]): 包含会话信息等上下文
+            
+        Returns:
+            str: Agent的响应结果
+        """
+        # 从context中获取session_id，如果没有则使用默认值
+        session_id = "default_session"
+        if context and "session_id" in context:
+            session_id = context["session_id"]
+        elif context and "chat_history" in context:
+            # 如果有聊天历史，可以根据聊天历史生成session_id
+            import hashlib
+            history_hash = hashlib.md5(str(context["chat_history"]).encode()).hexdigest()[:8]
+            session_id = f"session_{history_hash}"
+        
+        # 调用现有的chat方法
+        return self.chat(session_id, query)
     
     def chat(self, session_id: str, user_input: str) -> str:
         """处理用户输入"""
