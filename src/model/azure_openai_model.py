@@ -5,7 +5,7 @@ from langchain_openai import AzureChatOpenAI
 from langchain_core.language_models.base import BaseLanguageModel
 
 from src.model.base_model import BaseManagedModel
-from src.global_configuration.model_registry import model_register
+from src.global_configuration.decorators import model_register
 
 
 @model_register(

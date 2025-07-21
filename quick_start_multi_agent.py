@@ -10,6 +10,7 @@ from src.agent.supervisor_agent import SupervisorAgent
 from src.agent.conversation_agent import ConversationAgent
 from src.agent.document_agent import DocumentAgent
 from src.agent.tool_agent import ToolAgent
+from src.config.settings_store import default_setting_store
 
 
 def quick_test():
@@ -19,17 +20,17 @@ def quick_test():
     try:
         # 创建各种Agent
         print("📝 创建ConversationAgent...")
-        conversation_agent = ConversationAgent()
+        conversation_agent = ConversationAgent(default_setting_store)
         
         print("📚 创建DocumentAgent...")
-        document_agent = DocumentAgent()
+        document_agent = DocumentAgent(default_setting_store)
         
         print("🔧 创建ToolAgent...")
-        tool_agent = ToolAgent()
+        tool_agent = ToolAgent(default_setting_store)
         
         # 创建SupervisorAgent
         print("👨‍💼 创建SupervisorAgent...")
-        supervisor = SupervisorAgent()
+        supervisor = SupervisorAgent(default_setting_store)
         
         # 注册Agent
         print("📋 注册子Agent...")

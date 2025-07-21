@@ -4,60 +4,7 @@
 import threading
 from typing import Type, Optional, Dict, Any, List
 from src.model.base_model import BaseManagedModel
-
-# define decorator for model registration
-def model_register(**register_kwargs):
-    """
-    装饰器，用于注册模型类
-    
-    Args:
-        **register_kwargs: 注册参数，包括：
-            - models: 模型配置列表
-            - provider: 默认提供商
-            - auto_register: 是否自动注册
-    
-    Example:
-        @model_register(
-            models=[
-                {"name": "gpt-4o", "alias": "gpt4"},
-                {"name": "gpt-4", "alias": "gpt4-legacy"}
-            ],
-            provider="azure"
-        )
-        class AzureOpenAIModel(BaseManagedModel):
-            pass
-    """
-    def decorator(cls: Type[BaseManagedModel]):
-        models = register_kwargs.get('models', [])
-        provider = register_kwargs.get('provider', 'unknown')
-        auto_register = register_kwargs.get('auto_register', True)
-        
-        if auto_register:
-            for model_config in models:
-                model_name = model_config.get('name')
-                alias = model_config.get('alias')
-                model_provider = model_config.get('provider', provider)
-                
-                if model_name:
-                    try:
-                        registry = get_model_registry()
-                        full_name = registry.register(
-                            model_class=cls,
-                            model_name=model_name,
-                            model_provider=model_provider,
-                            alias=alias
-                        )
-                        print(f"✅ Registered {full_name}" + (f" (alias: {alias})" if alias else ""))
-                    except Exception as e:
-                        print(f"❌ Failed to register {model_provider}/{model_name}: {e}")
-        
-        # 将配置信息附加到类上
-        cls._registration_config = register_kwargs
-        cls._registered_models = models
-        
-        return cls
-    
-    return decorator
+from src.global_configuration.decorators import get_pending_registrations, clear_pending_registrations
 
 class ModelRegistry:
     """
@@ -210,10 +157,57 @@ class ModelRegistry:
 
 # 全局模型注册仓库实例
 _global_registry = ModelRegistry()
+_registry_initialized = False
+
+
+def _process_pending_registrations():
+    """处理所有待注册的模型"""
+    global _registry_initialized
+    
+    if _registry_initialized:
+        return
+        
+    try:
+        pending = get_pending_registrations()
+        
+        for registration in pending:
+            cls = registration['cls']
+            models = registration['models']
+            provider = registration['provider']
+            
+            for model_config in models:
+                model_name = model_config.get('name')
+                alias = model_config.get('alias')
+                model_provider = model_config.get('provider', provider)
+                
+                if model_name:
+                    try:
+                        full_name = _global_registry.register(
+                            model_class=cls,
+                            model_name=model_name,
+                            model_provider=model_provider,
+                            alias=alias
+                        )
+                        print(f"✅ Registered {full_name}" + (f" (alias: {alias})" if alias else ""))
+                    except Exception as e:
+                        print(f"❌ Failed to register {model_provider}/{model_name}: {e}")
+        
+        clear_pending_registrations()
+        _registry_initialized = True
+    except Exception as e:
+        print(f"⚠️ 延迟注册过程中发生错误: {e}")
 
 
 def get_model_registry() -> ModelRegistry:
     """获取全局模型注册仓库"""
+    # 只在需要时处理待注册的模型，并且确保模块已完全加载
+    if not _registry_initialized:
+        try:
+            _process_pending_registrations()
+        except:
+            # 如果处理失败，忽略错误，让注册在后续调用时再次尝试
+            pass
+    
     return _global_registry
 
 
@@ -232,7 +226,8 @@ def register_model(model_class: Type[BaseManagedModel],
     Returns:
         注册的完整模型名称
     """
-    return _global_registry.register(model_class, model_name, model_provider, alias)
+    registry = get_model_registry()  # 这会触发延迟注册
+    return registry.register(model_class, model_name, model_provider, alias)
 
 
 def get_model(model_identifier: str) -> Optional[BaseManagedModel]:
@@ -245,4 +240,16 @@ def get_model(model_identifier: str) -> Optional[BaseManagedModel]:
     Returns:
         模型实例
     """
-    return _global_registry.get(model_identifier)
+    registry = get_model_registry()  # 这会触发延迟注册
+    
+    # 如果模型不存在，尝试强制处理待注册的模型
+    model = registry.get(model_identifier)
+    if model is None and not _registry_initialized:
+        try:
+            _process_pending_registrations()
+            model = registry.get(model_identifier)
+        except:
+            # 如果仍然失败，忽略错误
+            pass
+    
+    return model

@@ -12,6 +12,10 @@ features:
 """
 from typing import Dict, Any, Optional
 from langgraph.graph import StateGraph, END
+
+from src.config.settings_store import SettingsStore, default_setting_store
+from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
+from src.global_configuration.model_registry import get_model
 from src.graph.state import AgentState
 from src.graph.nodes import AgentNodes
 from src.agent.base_agent import AbstractManagedAgent
@@ -19,13 +23,20 @@ from src.agent.base_agent import AbstractManagedAgent
 class ConversationAgent(AbstractManagedAgent):
     """基于LangGraph的对话Agent"""
     
-    def __init__(self):
+    def __init__(self, settings: SettingsStore):
         # 调用父类构造函数，设置Agent的描述
         super().__init__(
             description="专门处理用户对话的Agent，具备RAG文档检索、工具调用、历史记录管理等功能。"
                        "适合处理一般的问答、文档查询、工具调用等任务。"
         )
-        self.nodes = AgentNodes()
+        self.nodes = AgentNodes(
+            get_model(settings.llm_model_name),
+            get_azure_openai_embeddings(),
+            settings.chat_database,
+            settings.document_database,
+            settings.tools,
+            settings.retrival_document_detection_threshold
+        )
         self.workflow = self._create_workflow()
     
     def _create_workflow(self) -> StateGraph:
@@ -198,7 +209,7 @@ class ConversationAgent(AbstractManagedAgent):
         return self.nodes.rag_system.delete_document(doc_id)
 
 # 创建全局Agent实例
-conversation_agent = ConversationAgent()
+conversation_agent = ConversationAgent(default_setting_store)
 
 def create_agent() -> ConversationAgent:
     """创建Agent实例"""

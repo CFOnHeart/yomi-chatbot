@@ -8,42 +8,41 @@ from src.agent.supervisor_agent import SupervisorAgent
 from src.agent.conversation_agent import ConversationAgent
 from src.agent.document_agent import DocumentAgent
 from src.agent.tool_agent import ToolAgent
+from src.config.settings_store import SettingsStore, default_setting_store
 
 
 class AgentFactory:
     """Agent工厂类，用于创建和配置Agent"""
     
     @staticmethod
-    def create_conversation_agent() -> ConversationAgent:
+    def create_conversation_agent(settings: SettingsStore) -> ConversationAgent:
         """创建ConversationAgent"""
-        return ConversationAgent()
+        return ConversationAgent(settings)
     
     @staticmethod
-    def create_document_agent() -> DocumentAgent:
+    def create_document_agent(settings: SettingsStore) -> DocumentAgent:
         """创建DocumentAgent"""
-        return DocumentAgent()
+        return DocumentAgent(settings)
     
     @staticmethod
-    def create_tool_agent() -> ToolAgent:
+    def create_tool_agent(settings: SettingsStore) -> ToolAgent:
         """创建ToolAgent"""
-        return ToolAgent()
+        return ToolAgent(settings)
     
     @staticmethod
-    def create_supervisor_agent(managed_agents: Optional[List[AbstractManagedAgent]] = None) -> SupervisorAgent:
+    def create_supervisor_agent(settings: SettingsStore, managed_agents: Optional[List[AbstractManagedAgent]] = None) -> SupervisorAgent:
         """创建SupervisorAgent"""
-        return SupervisorAgent(managed_agents)
+        return SupervisorAgent(settings, managed_agents)
     
     @classmethod
     def create_default_multi_agent_system(cls) -> SupervisorAgent:
         """创建默认的multi-agent系统"""
         # 创建所有标准Agent
-        conversation_agent = cls.create_conversation_agent()
-        document_agent = cls.create_document_agent()
-        tool_agent = cls.create_tool_agent()
+        document_agent = cls.create_document_agent(default_setting_store)
+        tool_agent = cls.create_tool_agent(default_setting_store)
         
         # 创建Supervisor并注册Agent
-        supervisor = cls.create_supervisor_agent()
-        supervisor.register_agent(conversation_agent)
+        supervisor = cls.create_supervisor_agent(default_setting_store)
         supervisor.register_agent(document_agent)
         supervisor.register_agent(tool_agent)
         

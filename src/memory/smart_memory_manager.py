@@ -1,27 +1,27 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     AIMessage,
     SystemMessage,
     ToolMessage,
-    trim_messages,
 )
-from langchain_core.messages.utils import count_tokens_approximately
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate
-from src.config.settings import get_llm_model
-from src.database.chat_db import ChatDatabase
-import asyncio
 import threading
+from src.config.settings_store import SettingsStore
+from src.database.chat_db import ChatDatabase
+from src.global_configuration.model_registry import get_model
+from src.model.base_model import BaseManagedModel
+
 
 class DatabaseChatMessageHistory(BaseChatMessageHistory):
     """基于数据库的聊天记录历史管理器"""
     
-    def __init__(self, session_id: str, db: ChatDatabase):
+    def __init__(self, session_id: str, database: ChatDatabase):
         self.session_id = session_id
-        self.db = db
+        self.db = database
         self._messages: List[BaseMessage] = []
         self._loaded = False
     
@@ -89,10 +89,10 @@ class DatabaseChatMessageHistory(BaseChatMessageHistory):
 class SmartMemoryManager:
     """智能记忆管理器，支持自动摘要和Token管理"""
     
-    def __init__(self, db: ChatDatabase, max_tokens: int = 3200):
-        self.db = db
+    def __init__(self, llm: BaseManagedModel, database: ChatDatabase, max_tokens: int = 3200):
+        self.db = database
         self.max_tokens = max_tokens
-        self.llm = get_llm_model()
+        self.llm = llm
         self.session_histories: Dict[str, DatabaseChatMessageHistory] = {}
         
         # 创建摘要提示模板

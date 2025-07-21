@@ -4,7 +4,9 @@
 from typing import Dict, Any, Optional
 from src.agent.base_agent import AbstractManagedAgent
 from src.config.prompt_manager import get_prompt_manager
-from src.config.settings import get_llm_model
+from src.config.settings_store import SettingsStore
+from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
+from src.global_configuration.model_registry import get_model
 from src.rag.rag_system import RAGSystem
 
 class DocumentAgent(AbstractManagedAgent):
@@ -12,15 +14,15 @@ class DocumentAgent(AbstractManagedAgent):
     专门处理文档管理和检索的Agent。
     """
     
-    def __init__(self):
+    def __init__(self, settings: SettingsStore):
         super().__init__(
             description="专门处理文档管理、上传、检索和分析的Agent。"
                        "适合处理文档上传、文档搜索、文档摘要、文档分析等任务。"
                        "擅长从大量文档中快速找到相关信息并进行深度分析。"
         )
         self.prompt_manager = get_prompt_manager()
-        self.llm = get_llm_model()
-        self.rag_system = RAGSystem()
+        self.llm = get_model(settings.llm_model_name)
+        self.rag_system = RAGSystem(settings.document_database, get_azure_openai_embeddings())
     
     def invoke(self, query: str, context: Optional[Dict[str, Any]] = None) -> Any:
         """

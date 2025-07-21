@@ -6,17 +6,18 @@ from typing import List, Dict, Any, Optional
 
 from src.agent.base_agent import AbstractSupervisorAgent, AbstractManagedAgent
 from src.config.prompt_manager import get_prompt_manager
-from src.config.settings import get_llm_model
+from src.config.settings_store import SettingsStore
+from src.global_configuration.model_registry import get_model
 from src.utils.document_format_utils import clean_markdown_format
 
 class SupervisorAgent(AbstractSupervisorAgent):
     """
     主管Agent，负责接收用户请求，分解任务，并协调子Agent执行。
     """
-    def __init__(self, managed_agents: Optional[List[AbstractManagedAgent]] = None, llm_model=None):
+    def __init__(self, settings: SettingsStore, managed_agents: Optional[List[AbstractManagedAgent]] = None, llm_model=None):
         super().__init__(managed_agents)
         self.prompt_manager = get_prompt_manager()
-        self.llm = llm_model or get_llm_model()
+        self.llm = get_model(settings.llm_model_name)
         self.task_list = []
         self.prompt_path = self.prompt_manager.SUPERVISOR__AGENT_PROMPT_PATH
 

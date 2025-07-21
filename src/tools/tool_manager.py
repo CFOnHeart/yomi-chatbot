@@ -1,19 +1,21 @@
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_core.tools import BaseTool
-from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
-from src.config.settings import get_llm_model
+
+from src.config.settings_store import SettingsStore
+from src.model.base_model import BaseManagedModel
 from src.tools.simple.math import add, multiply
 from src.tools.simple.human_assistance import human_assistance
 import json
 import re
+from src.global_configuration.model_registry import get_model
 
 class ToolMatcher:
     """工具匹配器，用于检测用户输入是否需要调用工具"""
     
-    def __init__(self):
-        self.llm = get_llm_model()
-        self.available_tools = self._load_available_tools()
+    def __init__(self, llm: BaseManagedModel, tools: Optional[List[BaseTool]]):
+        self.llm = llm
+        self.available_tools = tools
         self.tool_detection_prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个工具检测助手。分析用户的输入，判断是否需要调用工具。
 
@@ -63,7 +65,7 @@ class ToolMatcher:
         try:
             tool_schemas = self._get_tool_schemas()
             
-            detection_chain = self.tool_detection_prompt | self.llm
+            detection_chain = self.tool_detection_prompt | self.llm.model
             response = detection_chain.invoke({
                 "available_tools": tool_schemas,
                 "user_input": user_input
@@ -124,8 +126,8 @@ class ToolMatcher:
 class ToolConfirmationSystem:
     """工具确认系统，用于向用户确认是否执行工具"""
     
-    def __init__(self):
-        self.tool_matcher = ToolMatcher()
+    def __init__(self, llm: BaseManagedModel, tools: Optional[List[BaseTool]]):
+        self.tool_matcher = ToolMatcher(llm, tools)
     
     def confirm_tool_execution(self, tool_name: str, suggested_args: Dict[str, Any]) -> bool:
         """确认工具执行"""

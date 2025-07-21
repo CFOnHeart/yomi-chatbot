@@ -4,7 +4,8 @@
 from typing import Dict, Any, Optional
 from src.agent.base_agent import AbstractManagedAgent
 from src.config.prompt_manager import get_prompt_manager
-from src.config.settings import get_llm_model
+from src.config.settings_store import SettingsStore
+from src.global_configuration.model_registry import get_model
 from src.tools.tool_manager import ToolMatcher, ToolConfirmationSystem
 
 class ToolAgent(AbstractManagedAgent):
@@ -12,17 +13,16 @@ class ToolAgent(AbstractManagedAgent):
     专门处理工具调用和系统管理的Agent。
     """
     
-    def __init__(self):
+    def __init__(self, settings: SettingsStore):
         super().__init__(
             description="专门处理工具调用、系统操作、数据处理的Agent。"
                        "适合处理计算、数据转换、外部API调用、系统查询等任务。"
                        "擅长执行具体的操作指令和工具调用。"
         )
         self.prompt_manager = get_prompt_manager()
-        # todo: 使用新的模型管理系统
-        self.llm = get_llm_model()
-        self.tool_matcher = ToolMatcher()
-        self.tool_confirmation = ToolConfirmationSystem()
+        self.llm = get_model(settings.llm_model_name)
+        self.tool_matcher = ToolMatcher(self.llm, settings.tools)
+        self.tool_confirmation = ToolConfirmationSystem(self.llm, settings.tools)
     
     def invoke(self, query: str, context: Optional[Dict[str, Any]] = None) -> Any:
         """

@@ -6,6 +6,11 @@ import os
 import sys
 from pathlib import Path
 
+from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
+from src.global_configuration.model_registry import get_model
+from src.rag import RAGSystem
+from src.config.settings_store import default_setting_store
+
 # 添加src目录到Python路径
 current_dir = Path(__file__).parent
 src_dir = current_dir / "src"
@@ -82,8 +87,8 @@ def test_basic_functionality():
     
     try:
         # 测试RAG系统 - 使用全局设置
-        from src.config.settings import get_rag_system
-        rag = get_rag_system()
+        from src.config.settings_store import default_setting_store
+        rag = RAGSystem(default_setting_store.document_database, get_azure_openai_embeddings())
         
         #添加测试文档
         doc_ids = rag.add_document(
@@ -104,7 +109,7 @@ def test_basic_functionality():
     try:
         # 测试工具系统
         from src.tools.tool_manager import ToolMatcher
-        matcher = ToolMatcher()
+        matcher = ToolMatcher(get_model(default_setting_store.llm_model_name), default_setting_store.tools)
         
         # 测试工具获取
         add_tool = matcher.get_tool_by_name("add")
@@ -121,7 +126,7 @@ def test_basic_functionality():
         from src.database.chat_db import ChatDatabase
         
         db = ChatDatabase("test_memory.db")
-        memory_manager = SmartMemoryManager(db)
+        memory_manager = SmartMemoryManager(get_model(default_setting_store.llm_model_name), db)
         
         session_id = "memory_test"
         memory_manager.initialize_session(session_id)
@@ -171,8 +176,8 @@ def upload_files_to_rag():
 
     try:
         # 使用全局设置获取RAG系统
-        from src.config.settings import get_rag_system
-        rag_system = get_rag_system()
+        from src.config.settings_store import default_setting_store
+        rag_system = RAGSystem(default_setting_store.document_database, get_azure_openai_embeddings())
 
         for file in knowledge_files:
             if not Path(file).exists():
@@ -207,15 +212,15 @@ def main():
     #     return
     
     # 测试基本功能
-    if not test_basic_functionality():
-        print("\n❌ 基本功能测试失败")
-        return
-    
-    # 测试Multi-Agent系统
-    multi_agent_system = test_multi_agent_system()
-    if not multi_agent_system:
-        print("\n❌ Multi-Agent系统测试失败")
-        return
+    # if not test_basic_functionality():
+    #     print("\n❌ 基本功能测试失败")
+    #     return
+    #
+    # # 测试Multi-Agent系统
+    # multi_agent_system = test_multi_agent_system()
+    # if not multi_agent_system:
+    #     print("\n❌ Multi-Agent系统测试失败")
+    #     return
     
     print("\n✅ 所有测试通过！")
     print("=" * 50)

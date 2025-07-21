@@ -8,7 +8,9 @@ from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
 from langchain_openai.embeddings import AzureOpenAIEmbeddings
 from dataclasses import dataclass
 
+from src.model.base_model import BaseManagedModel
 from src.rag.document_loader import PdfDocumentLoader, DocumentChunk
+from src.config.settings_store import SettingsStore
 
 
 @dataclass
@@ -32,10 +34,10 @@ class DocumentSearchResult:
 class RAGSystem:
     """检索增强生成系统 - 基于FAISS的版本"""
     
-    def __init__(self, document_db: FAISSDocumentDatabase = None, 
-                 embeddings: AzureOpenAIEmbeddings = None):
-        self.document_db = document_db or FAISSDocumentDatabase()
-        self.embeddings = embeddings or get_azure_openai_embeddings()
+    def __init__(self, document_db: FAISSDocumentDatabase,
+                 embeddings: AzureOpenAIEmbeddings):
+        self.document_db = document_db
+        self.embeddings = embeddings
         self.similarity_threshold = 0.7  # 相似度阈值
 
         # document loaders - 传递embedding配置
