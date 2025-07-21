@@ -41,7 +41,7 @@ def get_azure_openai_embeddings() -> AzureOpenAIEmbeddings:
             deployment="text-embedding-ada-002",
             model="text-embedding-ada-002",
             azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            azure_api_key=os.environ["AZURE_OPENAI_API_KEY"],
+            azure_ad_token=os.environ["AZURE_OPENAI_API_KEY"],
             api_version=os.environ["AZURE_OPENAI_API_VERSION"]
         )
     else:

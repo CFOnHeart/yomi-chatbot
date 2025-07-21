@@ -27,5 +27,6 @@ def get_azure_openai_model():
             azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
             azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
             openai_api_version=os.environ["AZURE_OPENAI_API_VERSION"],
+            azure_ad_token=os.environ["AZURE_OPENAI_API_KEY"],
         )
         return llm
