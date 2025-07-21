@@ -1,23 +1,21 @@
 from typing import List, Optional
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_openai import AzureOpenAIEmbeddings
 from src.database.chat_db import ChatDatabase
 from src.database.faiss_document_db import FAISSDocumentDatabase
-from src.global_configuration.model_registry import get_model
 from src.graph.state import AgentState, ToolExecutionResult, RAGSearchResult
 from src.memory.smart_memory_manager import SmartMemoryManager
-from src.model.base_model import BaseManagedModel
+from src.model.chat.base_model import BaseManagedModel
+from src.model.embedding import BaseManagedEmbedding
 from src.rag import DocumentSearchResult
 from src.tools.tool_manager import ToolConfirmationSystem
 from src.rag.rag_system import RAGSystem
 from src.config.prompt_manager import get_prompt_manager
-from src.config.settings_store import SettingsStore
 from langchain_core.tools import BaseTool
 
 class AgentNodes:
     """Agent工作流节点"""
     
-    def __init__(self, llm: BaseManagedModel, embeddings: AzureOpenAIEmbeddings, chat_db: ChatDatabase, document_db: FAISSDocumentDatabase, tools: Optional[List[BaseTool]], retrival_document_detection_threshold: float = 0.7):
+    def __init__(self, llm: BaseManagedModel, embeddings: BaseManagedEmbedding, chat_db: ChatDatabase, document_db: FAISSDocumentDatabase, tools: Optional[List[BaseTool]], retrival_document_detection_threshold: float = 0.7):
         self.db = chat_db
         self.memory_manager = SmartMemoryManager(llm, chat_db)
         self.tool_system = ToolConfirmationSystem(llm, tools)
@@ -220,6 +218,9 @@ class AgentNodes:
                 top_k=5,
                 session_id=session_id
             )
+
+
+            documents = list(filter(lambda doc: doc.similarity_score > self.retrival_document_detection_threshold, documents))
             
             # 生成LLM上下文
             context_for_llm = self.rag_system.format_context_for_llm(documents)
@@ -235,7 +236,6 @@ class AgentNodes:
                 source_references=source_references,
                 search_query=user_input
             )
-            rag_result.documents = list(filter(lambda doc: doc.similarity_score < self.retrival_document_detection_threshold, documents))
             state["rag_search_result"] = rag_result
             
             if documents:

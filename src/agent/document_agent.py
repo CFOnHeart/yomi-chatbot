@@ -5,8 +5,8 @@ from typing import Dict, Any, Optional
 from src.agent.base_agent import AbstractManagedAgent
 from src.config.prompt_manager import get_prompt_manager
 from src.config.settings_store import SettingsStore
-from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
 from src.global_configuration.model_registry import get_model
+from src.global_configuration.embedding_registry import get_embedding
 from src.rag.rag_system import RAGSystem
 
 class DocumentAgent(AbstractManagedAgent):
@@ -22,7 +22,7 @@ class DocumentAgent(AbstractManagedAgent):
         )
         self.prompt_manager = get_prompt_manager()
         self.llm = get_model(settings.llm_model_name)
-        self.rag_system = RAGSystem(settings.document_database, get_azure_openai_embeddings())
+        self.rag_system = RAGSystem(settings.document_database, get_embedding(settings.embedding_model_name))
     
     def invoke(self, query: str, context: Optional[Dict[str, Any]] = None) -> Any:
         """

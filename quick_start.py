@@ -6,10 +6,9 @@ import os
 import sys
 from pathlib import Path
 
-from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
 from src.global_configuration.model_registry import get_model
+from src.global_configuration.embedding_registry import get_embedding
 from src.rag import RAGSystem
-from src.config.settings_store import default_setting_store
 
 # 添加src目录到Python路径
 current_dir = Path(__file__).parent
@@ -88,7 +87,7 @@ def test_basic_functionality():
     try:
         # 测试RAG系统 - 使用全局设置
         from src.config.settings_store import default_setting_store
-        rag = RAGSystem(default_setting_store.document_database, get_azure_openai_embeddings())
+        rag = RAGSystem(default_setting_store.document_database, get_embedding(default_setting_store.embedding_model_name))
         
         #添加测试文档
         doc_ids = rag.add_document(
@@ -177,7 +176,7 @@ def upload_files_to_rag():
     try:
         # 使用全局设置获取RAG系统
         from src.config.settings_store import default_setting_store
-        rag_system = RAGSystem(default_setting_store.document_database, get_azure_openai_embeddings())
+        rag_system = RAGSystem(default_setting_store.document_database, get_embedding(default_setting_store.embedding_model_name))
 
         for file in knowledge_files:
             if not Path(file).exists():

@@ -10,19 +10,17 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
-from langchain_openai import AzureOpenAIEmbeddings
-
 sys.path.append(str(Path(__file__).parent.parent))
 
 from src.rag.rag_system import RAGSystem
 from src.database.faiss_document_db import FAISSDocumentDatabase
-from src.config.settings_store import SettingsStore
+from src.model.embedding import BaseManagedEmbedding
 
 class RAGManager:
     """RAG文档管理器"""
     
     def __init__(self, document_db: FAISSDocumentDatabase,
-                 embeddings: AzureOpenAIEmbeddings):
+                 embeddings: BaseManagedEmbedding):
         self.rag_system = RAGSystem(document_db, embeddings)
         self.doc_db = document_db
     

@@ -10,10 +10,8 @@ from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate
 import threading
-from src.config.settings_store import SettingsStore
 from src.database.chat_db import ChatDatabase
-from src.global_configuration.model_registry import get_model
-from src.model.base_model import BaseManagedModel
+from src.model.chat.base_model import BaseManagedModel
 
 
 class DatabaseChatMessageHistory(BaseChatMessageHistory):

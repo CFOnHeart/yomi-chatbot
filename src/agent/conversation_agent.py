@@ -14,8 +14,8 @@ from typing import Dict, Any, Optional
 from langgraph.graph import StateGraph, END
 
 from src.config.settings_store import SettingsStore, default_setting_store
-from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
 from src.global_configuration.model_registry import get_model
+from src.global_configuration.embedding_registry import get_embedding
 from src.graph.state import AgentState
 from src.graph.nodes import AgentNodes
 from src.agent.base_agent import AbstractManagedAgent
@@ -31,7 +31,7 @@ class ConversationAgent(AbstractManagedAgent):
         )
         self.nodes = AgentNodes(
             get_model(settings.llm_model_name),
-            get_azure_openai_embeddings(),
+            get_embedding(settings.embedding_model_name),
             settings.chat_database,
             settings.document_database,
             settings.tools,

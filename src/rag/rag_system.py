@@ -1,16 +1,12 @@
 import time
-import json
 import numpy as np
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any
 from pathlib import Path
 from src.database.faiss_document_db import FAISSDocumentDatabase
-from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
-from langchain_openai.embeddings import AzureOpenAIEmbeddings
 from dataclasses import dataclass
 
-from src.model.base_model import BaseManagedModel
-from src.rag.document_loader import PdfDocumentLoader, DocumentChunk
-from src.config.settings_store import SettingsStore
+from src.model.embedding import BaseManagedEmbedding
+from src.rag.document_loader import PdfDocumentLoader
 
 
 @dataclass
@@ -34,8 +30,11 @@ class DocumentSearchResult:
 class RAGSystem:
     """检索增强生成系统 - 基于FAISS的版本"""
     
-    def __init__(self, document_db: FAISSDocumentDatabase,
-                 embeddings: AzureOpenAIEmbeddings):
+    def __init__(
+            self,
+            document_db: FAISSDocumentDatabase,
+            embeddings: BaseManagedEmbedding
+    ):
         self.document_db = document_db
         self.embeddings = embeddings
         self.similarity_threshold = 0.7  # 相似度阈值

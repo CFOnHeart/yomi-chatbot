@@ -10,7 +10,7 @@ class SettingsStore:
         self.chat_database : ChatDatabase = ChatDatabase("database/chat_history.db")
         self.document_database : FAISSDocumentDatabase = FAISSDocumentDatabase("database/documents.db")
         self.llm_model_name = "azure/gpt-4o"
-        self.embedding_model_name = "azure/openai-embeddings"
+        self.embedding_model_name = "azure/text-embedding-ada-002"
         self.tools = [add, multiply, human_assistance]
         self.retrival_document_detection_threshold = 0.7
 

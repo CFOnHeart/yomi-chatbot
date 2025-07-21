@@ -1,4 +1,4 @@
-from src.model.azure_openai_model import AzureOpenAIModel
+from src.model.chat.azure_openai_model import AzureOpenAIModel
 
 def test_azure_openai_model():
     try:

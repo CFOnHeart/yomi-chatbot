@@ -2,13 +2,12 @@ from typing import List, Dict, Any, Optional, Tuple
 from langchain_core.tools import BaseTool
 from langchain_core.prompts import ChatPromptTemplate
 
-from src.config.settings_store import SettingsStore
-from src.model.base_model import BaseManagedModel
+from src.model.chat.base_model import BaseManagedModel
 from src.tools.simple.math import add, multiply
 from src.tools.simple.human_assistance import human_assistance
 import json
 import re
-from src.global_configuration.model_registry import get_model
+
 
 class ToolMatcher:
     """工具匹配器，用于检测用户输入是否需要调用工具"""

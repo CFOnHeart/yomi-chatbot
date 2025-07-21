@@ -4,7 +4,7 @@ from azure.identity import DefaultAzureCredential
 from langchain_openai import AzureChatOpenAI
 from langchain_core.language_models.base import BaseLanguageModel
 
-from src.model.base_model import BaseManagedModel
+from src.model.chat.base_model import BaseManagedModel
 from src.global_configuration.decorators import model_register
 
 

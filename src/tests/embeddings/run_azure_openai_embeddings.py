@@ -1,5 +1,5 @@
-from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
+from src.model.embedding.azure_openai_embeddings import YomiAzureOpenAIEmbedding
 
-embeddings = get_azure_openai_embeddings()
+embeddings = YomiAzureOpenAIEmbedding()
 
-print (embeddings.embed_documents("Hi, I am Bob"))
+print (embeddings.embed_documents(["Hi, I am Bob"]))

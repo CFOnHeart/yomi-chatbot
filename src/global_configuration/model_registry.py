@@ -3,7 +3,7 @@
 """
 import threading
 from typing import Type, Optional, Dict, Any, List
-from src.model.base_model import BaseManagedModel
+from src.model.chat.base_model import BaseManagedModel
 from src.global_configuration.decorators import get_pending_registrations, clear_pending_registrations
 
 class ModelRegistry:

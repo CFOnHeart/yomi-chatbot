@@ -5,9 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
-from langchain_openai.embeddings import AzureOpenAIEmbeddings
-from src.embeddings.azure_openai_embeddings import get_azure_openai_embeddings
+from src.model.embedding.base_embedding import BaseManagedEmbedding
 
 
 @dataclass
@@ -26,29 +24,29 @@ class DocumentLoader(ABC):
     """文档加载器抽象基类"""
 
     def __init__(self,
+                 embeddings: BaseManagedEmbedding,
                  chunk_size: int = 1000,
                  chunk_overlap: int = 200,
                  min_chunk_size: int = 50,
                  encoding: str = 'utf-8',
-                 embeddings: Optional[AzureOpenAIEmbeddings] = None,
                  **kwargs):
         """
         初始化文档加载器
 
         Args:
+            embeddings: 嵌入模型，如果为None则使用默认的Azure OpenAI嵌入
             chunk_size: 每个chunk的最大字符数
             chunk_overlap: chunk之间的重叠字符数
             min_chunk_size: 最小chunk大小，小于此值的chunk会被跳过
             encoding: 文件编码
-            embeddings: 嵌入模型，如果为None则使用默认的Azure OpenAI嵌入
             **kwargs: 其他参数
         """
+        self.embeddings = embeddings
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.min_chunk_size = min_chunk_size
         self.encoding = encoding
         self.kwargs = kwargs
-        self.embeddings = embeddings or get_azure_openai_embeddings()
 
     @abstractmethod
     def load_documents(self, file_path: Union[str, Path]) -> List[DocumentChunk]:
@@ -138,12 +136,12 @@ class PdfDocumentLoader(DocumentLoader):
     """PDF文档加载器"""
 
     def __init__(self,
+                 embeddings: BaseManagedEmbedding,
                  chunk_size: int = 1000,
                  chunk_overlap: int = 200,
                  min_chunk_size: int = 50,
                  extract_images: bool = False,
                  password: Optional[str] = None,
-                 embeddings: Optional[AzureOpenAIEmbeddings] = None,
                  **kwargs):
         """
         初始化PDF文档加载器
@@ -157,7 +155,7 @@ class PdfDocumentLoader(DocumentLoader):
             embeddings: 嵌入模型，如果为None则使用默认的Azure OpenAI嵌入
             **kwargs: 其他参数
         """
-        super().__init__(chunk_size, chunk_overlap, min_chunk_size, embeddings=embeddings, **kwargs)
+        super().__init__(embeddings, chunk_size, chunk_overlap, min_chunk_size, **kwargs)
         self.extract_images = extract_images
         self.password = password
 

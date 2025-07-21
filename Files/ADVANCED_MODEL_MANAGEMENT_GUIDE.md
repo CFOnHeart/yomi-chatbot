@@ -56,8 +56,9 @@ response = llm.invoke("Hello!")
 ### 方法1：使用装饰器（推荐）
 
 ```python
-from src.model.base_model import BaseManagedModel
+from src.model.chat.base_model import BaseManagedModel
 from src.model.decorators import model_register, AutoRegisterModelMixin
+
 
 @model_register(
     models=[

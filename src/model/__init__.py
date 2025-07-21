@@ -4,12 +4,12 @@
 """
 
 # 导入所有模型类，这会自动触发装饰器执行模型注册
-from src.model.azure_openai_model import AzureOpenAIModel
-from src.model.openai_model import OpenAIModel
+from src.model.chat.azure_openai_model import AzureOpenAIModel
+from src.model.chat.openai_model import OpenAIModel
 
 # 导入扩展模型以触发注册
 try:
-    from src.model.extended_models import AnthropicModel, GoogleModel
+    from src.model.chat.extended_models import AnthropicModel, GoogleModel
     _EXTENDED_MODELS_AVAILABLE = True
 except ImportError:
     _EXTENDED_MODELS_AVAILABLE = False
