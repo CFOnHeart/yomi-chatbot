@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 from src.agent.base_agent import AbstractSupervisorAgent, AbstractManagedAgent
 from src.config.prompt_manager import get_prompt_manager
 from src.config.settings import get_llm_model
+from src.utils.document_format_utils import clean_markdown_format
 
 class SupervisorAgent(AbstractSupervisorAgent):
     """
@@ -17,6 +18,7 @@ class SupervisorAgent(AbstractSupervisorAgent):
         self.prompt_manager = get_prompt_manager()
         self.llm = llm_model or get_llm_model()
         self.task_list = []
+        self.prompt_path = self.prompt_manager.SUPERVISOR__AGENT_PROMPT_PATH
 
     def _generate_agent_descriptions(self) -> str:
         """
@@ -43,7 +45,7 @@ class SupervisorAgent(AbstractSupervisorAgent):
 
         # 1. 分解任务
         plan_prompt = self.prompt_manager.populate_template(
-            self.prompt_manager.RAG_PROMPT_PATH,
+            self.prompt_path,
             "supervisor_plan", 
             {"user_query": query}
         )
@@ -78,7 +80,7 @@ class SupervisorAgent(AbstractSupervisorAgent):
             
             # 3. 选择Agent
             delegation_prompt = self.prompt_manager.populate_template(
-                self.prompt_manager.RAG_PROMPT_PATH,
+                self.prompt_path,
                 "supervisor_delegate",
                 {
                     "task": current_task,
@@ -95,12 +97,15 @@ class SupervisorAgent(AbstractSupervisorAgent):
                 delegation_response_text = delegation_response.content
             else:
                 delegation_response_text = str(delegation_response)
-            
+
+            json_formated_response = clean_markdown_format(delegation_response_text)
+
             try:
-                delegation_decision = json.loads(delegation_response_text)
+                delegation_decision = json.loads(json_formated_response)
                 agent_name = delegation_decision.get("agent_name")
                 sub_task_query = delegation_decision.get("task_input")
             except json.JSONDecodeError:
+                print (f"⚠️ Failed to parse delegation response {json_formated_response}. Using SupervisorAgent to handle it.")
                 agent_name = "SupervisorAgent" # 解析失败则自己处理
                 sub_task_query = current_task
 
@@ -139,7 +144,7 @@ class SupervisorAgent(AbstractSupervisorAgent):
 
         # 5. 汇总结果
         summary_prompt = self.prompt_manager.populate_template(
-            self.prompt_manager.RAG_PROMPT_PATH,
+            self.prompt_path,
             "supervisor_summarize",
             {
                 "user_query": query,

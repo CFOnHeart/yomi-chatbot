@@ -14,6 +14,7 @@ class PromptManager:
     
     def __init__(self):
         self.RAG_PROMPT_PATH = "src/config/prompts/prompts.yaml"
+        self.SUPERVISOR__AGENT_PROMPT_PATH = "src/config/prompts/supervisor_agent_prompts.yaml"
         self._cache_templates = {}
     
     def _load_templates(self, prompt_path: str) -> Any:
@@ -21,12 +22,12 @@ class PromptManager:
         if self._cache_templates.keys().__contains__(prompt_path):
             return self._cache_templates[prompt_path]
 
-        prompt_path = Path(prompt_path)
+        prompt_path_obj = Path(prompt_path)
         try:
-            if not prompt_path.exists():
-                raise FileNotFoundError(f"Prompt配置文件不存在: {prompt_path}")
+            if not prompt_path_obj.exists():
+                raise FileNotFoundError(f"Prompt配置文件不存在: {prompt_path_obj}")
             
-            with open(prompt_path, 'r', encoding='utf-8') as file:
+            with open(prompt_path_obj, 'r', encoding='utf-8') as file:
                 templates = yaml.safe_load(file)
             
             print(f"✅ 加载了 {len(templates)} 个prompt模板")

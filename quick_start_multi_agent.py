@@ -40,7 +40,7 @@ def quick_test():
         print("✅ Multi-Agent系统创建成功!")
         
         # 简单测试
-        test_query = "你好，请介绍一下你的功能"
+        test_query = "what's the result of 3*135"
         print(f"\n🎯 测试查询: {test_query}")
         
         result = supervisor.invoke(test_query, {"session_id": "test_session"})
