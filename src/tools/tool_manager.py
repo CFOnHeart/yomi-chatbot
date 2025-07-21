@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from langchain_core.tools import BaseTool
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
-from src.model.azure_openai_model import get_azure_openai_model
+from src.config.settings import get_llm_model
 from src.tools.simple.math import add, multiply
 from src.tools.simple.human_assistance import human_assistance
 import json
@@ -12,7 +12,7 @@ class ToolMatcher:
     """工具匹配器，用于检测用户输入是否需要调用工具"""
     
     def __init__(self):
-        self.llm = get_azure_openai_model()
+        self.llm = get_llm_model()
         self.available_tools = self._load_available_tools()
         self.tool_detection_prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个工具检测助手。分析用户的输入，判断是否需要调用工具。

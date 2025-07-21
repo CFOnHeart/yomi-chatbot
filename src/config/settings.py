@@ -5,13 +5,15 @@
 
 from typing import Optional, TYPE_CHECKING
 import threading
+import src.model  # 确保模型已注册
+from src.global_configuration.model_registry import get_model
 
 # 只在类型检查时导入，避免运行时循环依赖
 if TYPE_CHECKING:
     from src.rag.rag_system import RAGSystem
-    from src.model.azure_openai_model import AzureOpenAIModel
     from src.embeddings.azure_openai_embeddings import AzureOpenAIEmbeddings
     from src.database.faiss_document_db import FAISSDocumentDatabase
+    from src.model.base_model import BaseManagedModel
 
 
 class GlobalSettings:
@@ -19,7 +21,7 @@ class GlobalSettings:
     
     def __init__(self):
         self._rag_system: Optional['RAGSystem'] = None
-        self._llm_model: Optional['AzureOpenAIModel'] = None
+        self._llm_model: Optional['BaseManagedModel'] = None
         self._llm_embeddings: Optional['AzureOpenAIEmbeddings'] = None
         self._faiss_document_db: Optional['FAISSDocumentDatabase'] = None
         self._lock = threading.Lock()
@@ -40,8 +42,7 @@ class GlobalSettings:
         if self._llm_model is None:
             with self._lock:
                 if self._llm_model is None:
-                    from src.model.azure_openai_model import get_azure_openai_model
-                    self._llm_model = get_azure_openai_model()
+                    self._llm_model = get_model("azure/gpt-4o")  # 默认模型
         return self._llm_model
     
     @property

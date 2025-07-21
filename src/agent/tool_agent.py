@@ -19,6 +19,7 @@ class ToolAgent(AbstractManagedAgent):
                        "擅长执行具体的操作指令和工具调用。"
         )
         self.prompt_manager = get_prompt_manager()
+        # todo: 使用新的模型管理系统
         self.llm = get_llm_model()
         self.tool_matcher = ToolMatcher()
         self.tool_confirmation = ToolConfirmationSystem()

@@ -3,7 +3,6 @@ from src.graph.state import AgentState, ToolExecutionResult, RAGSearchResult
 from src.memory.smart_memory_manager import SmartMemoryManager
 from src.rag import DocumentSearchResult
 from src.tools.tool_manager import ToolConfirmationSystem
-from src.model.azure_openai_model import get_azure_openai_model
 from src.database.chat_db import ChatDatabase
 from src.rag.rag_system import RAGSystem
 from src.config.settings import get_llm_embeddings, get_llm_model, get_rag_system

@@ -11,7 +11,7 @@ from langchain_core.messages.utils import count_tokens_approximately
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate
-from src.model.azure_openai_model import get_azure_openai_model
+from src.config.settings import get_llm_model
 from src.database.chat_db import ChatDatabase
 import asyncio
 import threading
@@ -92,7 +92,7 @@ class SmartMemoryManager:
     def __init__(self, db: ChatDatabase, max_tokens: int = 3200):
         self.db = db
         self.max_tokens = max_tokens
-        self.llm = get_azure_openai_model()
+        self.llm = get_llm_model()
         self.session_histories: Dict[str, DatabaseChatMessageHistory] = {}
         
         # 创建摘要提示模板
