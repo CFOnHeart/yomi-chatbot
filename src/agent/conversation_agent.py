@@ -145,6 +145,11 @@ class ConversationAgent(AbstractManagedAgent):
     
     def chat(self, session_id: str, user_input: str) -> str:
         """处理用户输入"""
+        # 设置当前会话到流式处理器
+        from src.api.streaming_handler import get_streaming_handler
+        streaming_handler = get_streaming_handler()
+        streaming_handler.set_current_session(session_id)
+        
         # 创建初始状态
         initial_state = {
             "session_id": session_id,
@@ -173,6 +178,7 @@ class ConversationAgent(AbstractManagedAgent):
             
         except Exception as e:
             error_msg = f"工作流执行失败: {str(e)}"
+            streaming_handler.error_occurred(error_msg)
             print(f"❌ {error_msg}")
             return f"抱歉，处理您的请求时遇到了问题: {error_msg}"
     

@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "azure-identity>=1.23.0",
     "faiss-cpu>=1.7.4",
+    "fastapi>=0.104.1",
     "google-api-python-client>=2.175.0",
     "graphviz>=0.21",
     "ipython>=9.4.0",
@@ -26,4 +27,5 @@ dependencies = [
     "reportlab>=4.4.2",
     "ruamel-yaml>=0.18.14",
     "sqlalchemy>=2.0.41",
+    "uvicorn>=0.24.0",
 ]

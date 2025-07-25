@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE事件调试工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .event-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .event-item {
+            margin-bottom: 10px;
+            padding: 5px;
+            border-left: 3px solid #007bff;
+            background: white;
+        }
+        .event-time {
+            color: #6c757d;
+            font-size: 11px;
+        }
+        .event-type {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .event-data {
+            color: #495057;
+            white-space: pre-wrap;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        input, button {
+            margin: 5px;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 SSE事件调试工具</h1>
+        <p>此工具用于调试Server-Sent Events和工具确认功能。</p>
+        
+        <div class="controls">
+            <input type="text" id="messageInput" placeholder="输入测试消息..." style="width: 300px;">
+            <button onclick="sendMessage()">发送消息</button>
+            <button onclick="clearLog()">清空日志</button>
+            <button onclick="toggleConnection()">连接/断开</button>
+        </div>
+        
+        <div id="status" class="status">等待连接...</div>
+        
+        <h3>📡 事件日志</h3>
+        <div id="eventLog" class="event-log">
+            <div class="event-item">
+                <div class="event-time">等待事件...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SSEDebugger {
+            constructor() {
+                this.eventSource = null;
+                this.isConnected = false;
+                this.sessionId = 'debug-' + Date.now();
+                this.eventLog = document.getElementById('eventLog');
+                this.statusDiv = document.getElementById('status');
+                
+                this.connect();
+            }
+            
+            connect() {
+                if (this.eventSource) {
+                    this.eventSource.close();
+                }
+                
+                this.updateStatus('正在连接...', 'warning');
+                
+                try {
+                    this.eventSource = new EventSource(`http://localhost:8000/chat/stream?session_id=${this.sessionId}&message=测试连接`);
+                    
+                    this.eventSource.onopen = () => {
+                        this.isConnected = true;
+                        this.updateStatus('✅ 已连接到SSE流', 'success');
+                        this.logEvent('connection', 'SSE连接已建立', { session_id: this.sessionId });
+                    };
+                    
+                    this.eventSource.onmessage = (event) => {
+                        this.handleSSEEvent(event);
+                    };
+                    
+                    this.eventSource.onerror = (error) => {
+                        this.isConnected = false;
+                        this.updateStatus('❌ SSE连接错误', 'error');
+                        this.logEvent('error', 'SSE连接错误', error);
+                    };
+                    
+                } catch (error) {
+                    this.updateStatus('❌ 连接失败: ' + error.message, 'error');
+                    this.logEvent('error', '连接失败', error);
+                }
+            }
+            
+            disconnect() {
+                if (this.eventSource) {
+                    this.eventSource.close();
+                    this.eventSource = null;
+                }
+                this.isConnected = false;
+                this.updateStatus('已断开连接', 'info');
+            }
+            
+            handleSSEEvent(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    this.logEvent(data.event_type || 'unknown', data, data);
+                    
+                    // 特殊处理工具确认事件
+                    if (data.event_type === 'tool_confirmation_needed') {
+                        this.handleToolConfirmation(data);
+                    }
+                    
+                } catch (error) {
+                    this.logEvent('parse_error', '解析事件数据失败', {
+                        raw_data: event.data,
+                        error: error.message
+                    });
+                }
+            }
+            
+            handleToolConfirmation(data) {
+                const confirmed = confirm(`检测到工具确认请求:\n\n工具名称: ${data.tool_name}\n置信度: ${data.confidence}\n\n是否执行此工具？`);
+                
+                this.logEvent('user_interaction', '用户确认结果', { confirmed });
+                
+                // 发送确认结果
+                fetch('http://localhost:8000/chat/tool-confirm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        session_id: this.sessionId,
+                        confirmed: confirmed,
+                        tool_args: data.suggested_args || {}
+                    })
+                }).then(response => response.json())
+                .then(result => {
+                    this.logEvent('tool_confirmation_sent', '工具确认已发送', result);
+                })
+                .catch(error => {
+                    this.logEvent('tool_confirmation_error', '工具确认发送失败', error);
+                });
+            }
+            
+            async sendTestMessage(message) {
+                if (!message.trim()) return;
+                
+                this.logEvent('user_message', '发送测试消息', { message });
+                
+                // 重新建立连接以发送新消息
+                this.disconnect();
+                setTimeout(() => {
+                    this.sessionId = 'debug-' + Date.now();
+                    this.eventSource = new EventSource(`http://localhost:8000/chat/stream?session_id=${this.sessionId}&message=${encodeURIComponent(message)}`);
+                    
+                    this.eventSource.onopen = () => {
+                        this.isConnected = true;
+                        this.updateStatus('✅ 已重新连接，正在处理消息...', 'success');
+                    };
+                    
+                    this.eventSource.onmessage = (event) => {
+                        this.handleSSEEvent(event);
+                    };
+                    
+                    this.eventSource.onerror = (error) => {
+                        this.isConnected = false;
+                        this.updateStatus('❌ 处理消息时出错', 'error');
+                        this.logEvent('error', '消息处理错误', error);
+                    };
+                }, 100);
+            }
+            
+            logEvent(type, description, data = null) {
+                const eventItem = document.createElement('div');
+                eventItem.className = 'event-item';
+                
+                const timestamp = new Date().toLocaleTimeString();
+                const dataStr = data ? JSON.stringify(data, null, 2) : '';
+                
+                eventItem.innerHTML = `
+                    <div class="event-time">${timestamp}</div>
+                    <div class="event-type">[${type.toUpperCase()}] ${description}</div>
+                    ${dataStr ? `<div class="event-data">${dataStr}</div>` : ''}
+                `;
+                
+                this.eventLog.appendChild(eventItem);
+                this.eventLog.scrollTop = this.eventLog.scrollHeight;
+            }
+            
+            updateStatus(message, type = 'info') {
+                this.statusDiv.textContent = message;
+                this.statusDiv.className = `status ${type}`;
+            }
+            
+            clearLog() {
+                this.eventLog.innerHTML = '<div class="event-item"><div class="event-time">日志已清空</div></div>';
+            }
+        }
+        
+        // 全局实例
+        let sseDebugger = null;
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            sseDebugger = new SSEDebugger();
+        });
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (message && sseDebugger) {
+                sseDebugger.sendTestMessage(message);
+                input.value = '';
+            }
+        }
+        
+        function clearLog() {
+            if (sseDebugger) {
+                sseDebugger.clearLog();
+            }
+        }
+        
+        function toggleConnection() {
+            if (sseDebugger) {
+                if (sseDebugger.isConnected) {
+                    sseDebugger.disconnect();
+                } else {
+                    sseDebugger.connect();
+                }
+            }
+        }
+        
+        // 回车发送消息
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.target.id === 'messageInput') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

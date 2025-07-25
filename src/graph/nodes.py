@@ -10,6 +10,7 @@ from src.rag import DocumentSearchResult
 from src.tools.tool_manager import ToolConfirmationSystem
 from src.rag.rag_system import RAGSystem
 from src.config.prompt_manager import get_prompt_manager
+from src.api.streaming_handler import get_streaming_handler
 from langchain_core.tools import BaseTool
 
 class AgentNodes:
@@ -23,6 +24,7 @@ class AgentNodes:
         self.rag_system = RAGSystem(document_db, embeddings)
         self.retrival_document_detection_threshold = retrival_document_detection_threshold
         self.prompt_manager = get_prompt_manager()
+        self.streaming_handler = get_streaming_handler()
     
     def initialize_session_node(self, state: AgentState) -> AgentState:
         """初始化会话节点"""
@@ -69,6 +71,14 @@ class AgentNodes:
         state["needs_tool"] = detection_result.get("needs_tool", False)
         
         if state["needs_tool"]:
+            # 发送工具检测事件到流式输出
+            self.streaming_handler.tool_detected({
+                "tool_name": detection_result.get("tool_name", "unknown"),
+                "description": detection_result.get("description", ""),
+                "confidence": detection_result.get("confidence", 0.0),
+                "parameters": detection_result.get("suggested_args", {})
+            })
+            
             print(f"🔧 检测到需要工具: {detection_result.get('tool_name', 'unknown')}")
             print(f"🎯 置信度: {detection_result.get('confidence', 0.0):.2f}")
         else:
@@ -96,16 +106,41 @@ class AgentNodes:
             state["needs_tool"] = False
             return state
         
-        # 确认工具执行
-        if self.tool_system.confirm_tool_execution(tool_name, suggested_args):
+        # 确认工具执行 - 发送到前端确认
+        # 发送工具确认需求事件
+        self.streaming_handler.tool_confirmation_needed(
+            tool_name=tool_name,
+            tool_schema=tool_schema,
+            suggested_args=suggested_args,
+            confidence=confidence
+        )
+        
+        print(f"🔔 等待用户确认工具执行: {tool_name}")
+        
+        # 等待前端确认（最多等待60秒）
+        confirmation_result = self.streaming_handler.wait_for_tool_confirmation(
+            state["session_id"], timeout=60
+        )
+        
+        if confirmation_result and confirmation_result.get("confirmed"):
+            # 用户确认执行工具
+            final_args = confirmation_result.get("tool_args", suggested_args)
+            print(f"✅ 用户确认执行工具: {tool_name}")
+            
+            # 发送工具执行开始事件
+            self.streaming_handler.tool_execution_start(tool_name)
+            
             # 执行工具
-            success, result = self.tool_system.execute_tool(tool_name, suggested_args)
+            success, result = self.tool_system.execute_tool(tool_name, final_args)
+            
+            # 发送工具执行完成事件
+            self.streaming_handler.tool_execution_complete(tool_name, success, result)
             
             # 创建工具执行结果
             tool_result = ToolExecutionResult(
                 success=success,
                 tool_name=tool_name,
-                tool_args=suggested_args,
+                tool_args=final_args,
                 result=result,
                 confidence=confidence
             )
@@ -120,7 +155,7 @@ class AgentNodes:
                     state["session_id"],
                     result,
                     tool_name,
-                    suggested_args
+                    final_args
                 )
                 
                 # 设置最终响应
@@ -131,7 +166,19 @@ class AgentNodes:
                 state["error_message"] = f"工具执行失败: {result}"
                 state["needs_tool"] = False
         else:
-            print("❌ 用户取消工具执行")
+            # 用户取消或超时
+            if confirmation_result is None:
+                print("⏰ 工具确认超时，取消执行")
+                self.streaming_handler.add_event("tool_confirmation_timeout", {
+                    "tool_name": tool_name,
+                    "message": "工具确认超时，已取消执行"
+                })
+            else:
+                print("❌ 用户取消工具执行")
+                self.streaming_handler.add_event("tool_confirmation_cancelled", {
+                    "tool_name": tool_name,
+                    "message": "用户取消工具执行"
+                })
             state["needs_tool"] = False
         
         return state
@@ -142,6 +189,10 @@ class AgentNodes:
         messages = state["messages"].copy()
         
         try:
+            # 发送LLM响应开始事件
+            print(f"🔄 发送LLM响应开始事件到流式处理器...")
+            self.streaming_handler.llm_response_start()
+            
             # 检查是否有RAG上下文
             rag_result = state.get("rag_search_result")
             if rag_result and rag_result.has_relevant_docs:
@@ -168,6 +219,10 @@ class AgentNodes:
             else:
                 final_response = ai_response
             
+            # 发送LLM响应完成事件
+            print(f"🔄 发送LLM响应完成事件到流式处理器...")
+            self.streaming_handler.llm_response_complete(final_response)
+            
             # 保存AI响应
             self.memory_manager.add_ai_message(session_id, final_response)
             
@@ -179,6 +234,7 @@ class AgentNodes:
             
         except Exception as e:
             error_msg = f"LLM响应失败: {str(e)}"
+            self.streaming_handler.error_occurred(error_msg)
             state["error_message"] = error_msg
             state["final_response"] = "抱歉，我暂时无法回答您的问题。"
             print(f"❌ {error_msg}")

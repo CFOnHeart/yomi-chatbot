@@ -14,7 +14,8 @@ class ToolMatcher:
     
     def __init__(self, llm: BaseManagedModel, tools: Optional[List[BaseTool]]):
         self.llm = llm
-        self.available_tools = tools
+        self.available_tools = tools or []
+        print(f"🔧 [ToolMatcher] 初始化，可用工具: {[tool.name for tool in self.available_tools]}")
         self.tool_detection_prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个工具检测助手。分析用户的输入，判断是否需要调用工具。
 
@@ -43,12 +44,11 @@ class ToolMatcher:
 用户输入：{user_input}"""),
         ])
     
-    def _load_available_tools(self) -> List[BaseTool]:
-        """加载可用工具"""
-        return [add, multiply, human_assistance]
-    
     def _get_tool_schemas(self) -> str:
         """获取工具模式描述"""
+        if not self.available_tools:
+            return "无可用工具"
+            
         schemas = []
         for tool in self.available_tools:
             schema = {

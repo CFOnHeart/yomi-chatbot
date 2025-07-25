@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>工具确认测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .log {
+            background: #f5f5f5;
+            padding: 10px;
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>工具确认测试页面</h1>
+    <button onclick="startTest()">开始测试工具确认</button>
+    <button onclick="clearLog()">清空日志</button>
+    
+    <h3>事件日志:</h3>
+    <div id="log" class="log"></div>
+    
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${time}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        function startTest() {
+            log('开始测试工具确认...');
+            
+            const eventSource = new EventSource('http://localhost:8000/chat/stream?session_id=tool-test&message=calculate 15 multiply 23');
+            
+            eventSource.onopen = function() {
+                log('✅ SSE连接已建立');
+            };
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    log(`收到事件: ${data.event_type || 'unknown'}`);
+                    log(`事件数据: ${JSON.stringify(data, null, 2)}`);
+                    
+                    if (data.event_type === 'tool_confirmation_needed') {
+                        log('🔔 收到工具确认请求！');
+                        
+                        // 3秒后自动确认
+                        setTimeout(() => {
+                            fetch('http://localhost:8000/chat/tool-confirm', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    session_id: 'tool-test',
+                                    confirmed: true,
+                                    tool_args: data.suggested_args || {}
+                                })
+                            }).then(response => response.json())
+                            .then(result => {
+                                log(`✅ 工具确认已发送: ${JSON.stringify(result)}`);
+                            })
+                            .catch(error => {
+                                log(`❌ 工具确认失败: ${error}`);
+                            });
+                        }, 3000);
+                    }
+                    
+                } catch (e) {
+                    log(`❌ 解析事件失败: ${e.message}`);
+                    log(`原始数据: ${event.data}`);
+                }
+            };
+            
+            eventSource.onerror = function(error) {
+                log(`❌ SSE错误: ${error}`);
+            };
+            
+            // 60秒后关闭连接
+            setTimeout(() => {
+                eventSource.close();
+                log('连接已关闭');
+            }, 60000);
+        }
+    </script>
+</body>
+</html>
